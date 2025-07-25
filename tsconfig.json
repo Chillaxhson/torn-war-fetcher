@@ -8,10 +8,12 @@
         "forceConsistentCasingInFileNames": true,
         "moduleResolution": "node",
         "useDefineForClassFields": false,
-        "experimentalDecorators": true
+        "experimentalDecorators": true,
+        "outDir": "./build"
     },
     "include": [
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "api/**/*.ts"
     ],
     "exclude": [
         "node_modules"

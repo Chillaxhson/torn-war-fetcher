@@ -1,21 +1,18 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { fetchFactionData } from './tornApi.js';
+import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = process.env.PORT || 3000;
-
 app.use(cors());
 
-// Serve static files from the 'dist' directory
-const distPath = path.join(__dirname, '../../dist');
+// The 'dist' directory is in the project root, which is one level above this file's parent directory ('api').
+const distPath = path.join(__dirname, '..', 'dist');
 app.use(express.static(distPath));
-
 
 app.get('/api/faction/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
@@ -39,6 +36,15 @@ app.get(/.*/, (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-}); 
+// This conditional logic is no longer needed since Vercel won't run this part.
+// The Docker CMD will run the compiled server.js directly.
+const isVercel = process.env.VERCEL;
+if (!isVercel) {
+    const port = process.env.PORT || 3000;
+    app.listen(port, () => {
+        console.log(`Server running at http://localhost:${port}`);
+    });
+}
+
+// Export the app instance for Vercel
+export default app; 
