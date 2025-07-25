@@ -1,6 +1,6 @@
 # Torn War Target Fetcher
 
-(AI written README cuz I'm way too lazy.)
+(AI written README)
 
 This is a simple  tool for tracking war targets in Torn City. It gives you a clean, real-time list of who to hit, when they're out of the hospital, and a button to do the deed.
 
@@ -15,26 +15,28 @@ You've got two options. The Docker way is the fastest and recommended. Do the lo
 
 ### Option 1: The Docker Way (Recommended)
 
-This is the easiest path. It builds and runs the entire application in a self-contained environment.
+This is the easiest and most professional path. It uses Docker Compose to build and run the entire application in a self-contained environment, based on the configuration in `docker-compose.yml`.
 
-**1. Build the Image**
-In the project's root directory, run this command. It'll build the Docker image and tag it as `torn-fetcher`.
-
-```bash
-docker build -t torn-fetcher .
-```
-
-**2. Run the Container**
-Now, start the container. This command runs it in the background (`-d`), maps port 3000, and gives it a memorable name.
+**1. Build and Run the Container**
+In the project's root directory, run this single command. It will build the image if it doesn't exist and start the container in the background.
 
 ```bash
-docker run -p 3000:3000 -d --name "Torn War Fetcher" torn-fetcher
+docker-compose up -d --build
 ```
 
 That's it. The app is running. Open your browser and go to **[http://localhost:3000](http://localhost:3000)**.
 
-To check the logs: `docker logs "Torn War Fetcher"`
-To stop it: `docker stop "Torn War Fetcher"`
+**Managing the Container**
+
+-   **To view the logs:**
+    ```bash
+    docker-compose logs -f
+    ```
+
+-   **To stop the application:**
+    ```bash
+    docker-compose down
+    ```
 
 ### Option 2: The Local Dev Way (For Tinkerers)
 
