@@ -11,7 +11,11 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.static(path.join(__dirname, '../public')));
+
+// Serve static files from the 'dist' directory
+const distPath = path.join(__dirname, '../../dist');
+app.use(express.static(distPath));
+
 
 app.get('/api/faction/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
@@ -28,6 +32,11 @@ app.get('/api/faction/:id', async (req: Request, res: Response) => {
         console.error('Error fetching faction data:', error);
         res.status(500).json({ error: 'Failed to fetch data from Torn API.', details: error.message });
     }
+});
+
+// For any other request, serve the index.html file
+app.get(/.*/, (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
 });
 
 app.listen(port, () => {

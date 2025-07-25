@@ -1,33 +1,21 @@
-# Stage 1: Build Stage
-FROM node:18-alpine AS build
-
+# Stage 1: Build Frontend & Backend
+FROM node:20-alpine AS build
 WORKDIR /app
 
-# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install
-
-# Copy source code
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Stage 2: Production Stage
-FROM node:18-alpine
-
+# Stage 2: Production
+FROM node:20-alpine
 WORKDIR /app
 
-# Copy package.json to enable "type": "module"
-COPY --from=build /app/package.json ./
+COPY package*.json ./
+RUN npm install --omit=dev
 
-# Copy production dependencies from build stage
-COPY --from=build /app/node_modules ./node_modules
-# Copy built application from build stage
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/src/api ./src/api
 
-# Expose the application port
 EXPOSE 3000
-
-# Start the application
-CMD ["node", "dist/api/server.js"] 
+CMD [ "node", "src/api/server.js" ] 
