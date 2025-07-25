@@ -7,7 +7,7 @@
     "start": "node dist/api/server.js",
     "build": "tsc && vite build",
     "dev": "vite",
-    "dev:backend": "tsx src/api/server.ts",
+    "dev:backend": "tsx api/server.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

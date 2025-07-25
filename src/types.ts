@@ -7,4 +7,6 @@ export interface Member {
         state: string;
         until: number;
     };
+    notes?: string;
+    hidden?: boolean;
 } 

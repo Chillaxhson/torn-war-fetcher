@@ -27,7 +27,7 @@ export class TornApp extends LitElement {
             flex-direction: column;
             gap: 2rem;
             width: 100%;
-            max-width: 900px;
+            max-width: 1200px;
         }
 
         h1 {
@@ -49,6 +49,7 @@ export class TornApp extends LitElement {
         if (storedFactionIDs.length > 0) {
             this.factionId = storedFactionIDs[0];
         }
+        this.loadTargetData();
     }
 
     render() {
@@ -63,8 +64,29 @@ export class TornApp extends LitElement {
             ${this.isLoading ? html`<p>Loading targets...</p>` : ''}
             ${this.error ? html`<p class="error-message">${this.error}</p>` : ''}
 
-            <target-list .targets=${this.targets}></target-list>
+            <target-list 
+                .targets=${this.targets}
+                @update-target=${this.handleUpdateTarget}
+            ></target-list>
         `;
+    }
+
+    private handleUpdateTarget(e: CustomEvent) {
+        const { targetId, changes } = e.detail;
+        this.targets = this.targets.map(target => {
+            if (target.id === targetId) {
+                const newTarget = { ...target };
+                if (changes.toggleHidden) {
+                    newTarget.hidden = !target.hidden;
+                }
+                if (changes.notes !== undefined) {
+                    newTarget.notes = changes.notes;
+                }
+                return newTarget;
+            }
+            return target;
+        });
+        this.saveTargetData();
     }
 
     private handleCredentialsUpdate(event: CustomEvent) {
@@ -81,6 +103,32 @@ export class TornApp extends LitElement {
             existingIDs = [this.factionId, ...existingIDs.filter((id: string) => id !== this.factionId)];
             if (existingIDs.length > 10) existingIDs.pop();
             localStorage.setItem('tornFactionIDs', JSON.stringify(existingIDs));
+        }
+    }
+
+    private saveTargetData() {
+        if (!this.factionId) return;
+        const dataToSave = this.targets.reduce((acc, target) => {
+            if (target.notes || target.hidden) {
+                acc[target.id] = {
+                    notes: target.notes,
+                    hidden: target.hidden,
+                };
+            }
+            return acc;
+        }, {} as Record<string, { notes?: string, hidden?: boolean }>);
+
+        localStorage.setItem(`tornTargetData_${this.factionId}`, JSON.stringify(dataToSave));
+    }
+
+    private loadTargetData() {
+        if (!this.factionId) return;
+        const savedData = JSON.parse(localStorage.getItem(`tornTargetData_${this.factionId}`) || '{}');
+        if (this.targets.length > 0) {
+            this.targets = this.targets.map(target => ({
+                ...target,
+                ...(savedData[target.id] || {}),
+            }));
         }
     }
 
@@ -103,18 +151,31 @@ export class TornApp extends LitElement {
                 this.error = `Error: ${data.error}. Details: ${data.details || 'None'}`;
                 this.targets = [];
             } else {
+                const statusPriority: Record<string, number> = {
+                    'Okay': 1,
+                    'Hospital': 2,
+                    'Traveling': 3,
+                    'Jail': 4,
+                    'Federal': 5,
+                    'Offline': 6,
+                };
+
                 this.targets = Object.entries(data.members || {})
                     .map(([id, member]) => ({ id, ...(member as any) }))
                     .sort((a: Member, b: Member) => {
+                        const priorityA = statusPriority[a.status.state] || 99;
+                        const priorityB = statusPriority[b.status.state] || 99;
+
+                        if (priorityA !== priorityB) {
+                            return priorityA - priorityB;
+                        }
+
+                        // If statuses are the same, sort by time remaining (ascending)
                         const a_until = a.status.until || 0;
                         const b_until = b.status.until || 0;
-                        if (a_until > 0 && b_until > 0) return a_until - b_until;
-                        if (a_until > 0) return -1;
-                        if (b_until > 0) return 1;
-                        if (a.status.state === 'Okay' && b.status.state !== 'Okay') return -1;
-                        if (b.status.state === 'Okay' && a.status.state !== 'Okay') return 1;
-                        return 0;
+                        return a_until - b_until;
                     });
+                this.loadTargetData();
             }
         } catch (err) {
             console.error('Failed to fetch targets:', err);

@@ -8,6 +8,9 @@ export class TargetCard extends LitElement {
     @property({ type: Object })
     target!: Member;
 
+    @property({ type: Boolean, reflect: true })
+    collapsed = false;
+
     @state()
     private isArmed = false;
 
@@ -24,7 +27,13 @@ export class TargetCard extends LitElement {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            transition: background-color 0.2s, box-shadow 0.3s;
+            transition: all 0.3s;
+        }
+
+        :host([collapsed]) .target-card {
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            background-color: #222;
         }
 
         .target-card.status-Okay { border-color: #4CAF50; }
@@ -37,15 +46,32 @@ export class TargetCard extends LitElement {
             box-shadow: 0 0 12px rgba(255, 193, 7, 0.6);
         }
 
+        :host([collapsed]) .status,
+        :host([collapsed]) .target-actions .notes-section,
+        :host([collapsed]) .target-actions .notify-label,
+        :host([collapsed]) .target-actions .attack-button {
+            display: none;
+        }
+
         .target-info {
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
+            flex-grow: 1;
         }
 
         .name {
             font-weight: bold;
             font-size: 1.1em;
+        }
+
+        .name a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .name a:hover {
+            text-decoration: underline;
         }
 
         .level {
@@ -58,30 +84,23 @@ export class TargetCard extends LitElement {
             font-size: 0.95em;
         }
 
+        .target-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
         .target-actions {
             display: flex;
             align-items: center;
             gap: 1rem;
+            flex-shrink: 0;
         }
 
-        .notify-label {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            font-size: 14px;
-            gap: 0.5rem;
-        }
-
-        .notify-checkbox {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-        }
-
-        .attack-link {
+        .action-button {
             display: inline-block;
             padding: 0.5rem 1rem;
-            background-color: #dc3545;
             color: white;
             text-decoration: none;
             border-radius: 4px;
@@ -89,28 +108,76 @@ export class TargetCard extends LitElement {
             font-weight: bold;
             text-align: center;
             transition: background-color 0.3s ease;
+            border: none;
+            cursor: pointer;
         }
 
-        .attack-link:hover {
+        .attack-button {
+            background-color: #dc3545;
+        }
+
+        .attack-button:hover {
             background-color: #c82333;
         }
 
-        .attack-link.disabled {
+        .attack-button:disabled {
             background-color: #5a6268;
             cursor: not-allowed;
             pointer-events: none;
+        }
+
+        .notes-section {
+            position: relative;
+        }
+
+        .notes-textarea {
+            width: 150px;
+            height: 38px;
+            background-color: #333;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #eee;
+            padding: 0.5rem;
+            box-sizing: border-box;
+            resize: none;
+            font-size: 12px;
+        }
+
+        .card-footer {
+            display: flex;
+            justify-content: flex-end;
+            width: 100%;
+        }
+
+        .collapse-button {
+            background: none;
+            border: 1px solid #6c757d;
+            color: #ccc;
+            padding: 0.3rem 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .collapse-button:hover {
+            background-color: #6c757d;
+            color: white;
         }
     `;
 
     render() {
         const attackUrl = `https://www.torn.com/loader.php?sid=attack&user2ID=${this.target.id}`;
+        const profileUrl = `https://www.torn.com/profiles.php?XID=${this.target.id}`;
         const isAttackable = !['Hospital', 'Jail', 'Federal'].includes(this.target.status.state);
 
         return html`
             <div class="target-card status-${this.target.status.state.replace(/\s+/g, '')} ${this.isArmed ? 'armed' : ''}">
                 <div class="target-info">
                     <div>
-                        <span class="name">${this.target.name}</span>
+                        <span class="name">
+                            <a href=${profileUrl} target="_blank">${this.target.name}</a>
+                        </span>
                         <span class="level">(Level: ${this.target.level})</span>
                     </div>
                     <div class="status">
@@ -123,6 +190,14 @@ export class TargetCard extends LitElement {
                     </div>
                 </div>
                 <div class="target-actions">
+                    <div class="notes-section">
+                        <textarea 
+                            class="notes-textarea"
+                            placeholder="Notes..."
+                            .value=${this.target.notes || ''}
+                            @change=${this.handleNotesChange}
+                        ></textarea>
+                    </div>
                     <label class="notify-label">
                         <input 
                             type="checkbox" 
@@ -130,29 +205,53 @@ export class TargetCard extends LitElement {
                             .checked=${this.isArmed}
                             @change=${this.toggleArmed}
                         >
-                        Notify & Attack
+                        Notify
                     </label>
-                    <a 
-                        href=${attackUrl} 
-                        target="_blank" 
-                        class="attack-link ${!isAttackable ? 'disabled' : ''}"
+                    <button
+                        class="action-button attack-button"
+                        ?disabled=${!isAttackable}
+                        @click=${this.handleAttack}
                     >
                         Attack
-                    </a>
+                    </button>
+                    <button class="collapse-button" @click=${this.hideTarget}>
+                        ${this.collapsed ? 'Unhide' : 'Hide'}
+                    </button>
                 </div>
             </div>
         `;
     }
 
+    private handleAttack() {
+        const attackUrl = `https://www.torn.com/loader.php?sid=attack&user2ID=${this.target.id}`;
+        window.open(attackUrl, '_blank');
+    }
+
+    private hideTarget() {
+        this.dispatchEvent(new CustomEvent('toggle-hidden-state', {
+            detail: { targetId: this.target.id },
+            bubbles: true,
+            composed: true
+        }));
+    }
+
     private toggleArmed(e: Event) {
         this.isArmed = (e.target as HTMLInputElement).checked;
+    }
+
+    private handleNotesChange(e: Event) {
+        const notes = (e.target as HTMLTextAreaElement).value;
+        this.dispatchEvent(new CustomEvent('notes-changed', {
+            detail: { targetId: this.target.id, notes },
+            bubbles: true,
+            composed: true
+        }));
     }
     
     private handleTimerEnd() {
         if (this.isArmed) {
             this.playNotificationSound();
-            const attackUrl = `https://www.torn.com/loader.php?sid=attack&user2ID=${this.target.id}`;
-            window.open(attackUrl, '_blank');
+            this.handleAttack();
             this.isArmed = false; 
         }
     }
