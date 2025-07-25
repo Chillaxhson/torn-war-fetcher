@@ -10,8 +10,15 @@
     <div class="container">
         <h1>Torn War Target Fetcher</h1>
         <div class="input-group">
-            <input type="text" id="apiKeyInput" placeholder="Enter Your API Key">
-            <input type="number" id="factionIDInput" placeholder="Enter Faction ID">
+            <div class="input-item">
+                <label for="apiKeyInput">API Key:</label>
+                <input type="text" id="apiKeyInput" placeholder="Enter Your API Key">
+            </div>
+            <div class="input-item">
+                <label for="factionIDInput">Faction ID:</label>
+                <input type="text" id="factionIDInput" list="factionIDs" placeholder="Enter Faction ID">
+                <datalist id="factionIDs"></datalist>
+            </div>
             <button id="fetchFactionData">Fetch Targets</button>
         </div>
         <div id="target-list"></div>
