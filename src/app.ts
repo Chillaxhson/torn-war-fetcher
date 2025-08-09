@@ -1,4 +1,5 @@
 import { LitElement, html, css } from 'lit';
+import { inject as injectVercelAnalytics } from '@vercel/analytics';
 import { customElement, property, state } from 'lit/decorators.js';
 import './components/api-form.js';
 import './components/target-list.js';
@@ -44,6 +45,10 @@ export class TornApp extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
+        if (import.meta.env && import.meta.env.PROD) {
+            // Inject Vercel Web Analytics script only in production
+            injectVercelAnalytics();
+        }
         this.apiKey = localStorage.getItem('tornApiKey') || '';
         const storedFactionIDs = JSON.parse(localStorage.getItem('tornFactionIDs') || '[]');
         if (storedFactionIDs.length > 0) {

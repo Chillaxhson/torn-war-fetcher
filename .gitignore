@@ -3,6 +3,7 @@
 
 # Build artifacts
 /dist
+/build
 
 # Logs
 npm-debug.log*
