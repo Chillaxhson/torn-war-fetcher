@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { Member } from '../types.js';
 import './countdown-timer.js';
 
@@ -10,9 +10,6 @@ export class TargetCard extends LitElement {
 
     @property({ type: Boolean, reflect: true })
     collapsed = false;
-
-    @state()
-    private isArmed = false;
 
     static styles = css`
         :host {
@@ -120,12 +117,6 @@ export class TargetCard extends LitElement {
             background-color: #c82333;
         }
 
-        .attack-button:disabled {
-            background-color: #5a6268;
-            cursor: not-allowed;
-            pointer-events: none;
-        }
-
         .notes-section {
             position: relative;
         }
@@ -167,12 +158,10 @@ export class TargetCard extends LitElement {
     `;
 
     render() {
-        const attackUrl = `https://www.torn.com/loader.php?sid=attack&user2ID=${this.target.id}`;
         const profileUrl = `https://www.torn.com/profiles.php?XID=${this.target.id}`;
-        const isAttackable = !['Hospital', 'Jail', 'Federal'].includes(this.target.status.state);
 
         return html`
-            <div class="target-card status-${this.target.status.state.replace(/\s+/g, '')} ${this.isArmed ? 'armed' : ''}">
+            <div class="target-card status-${this.target.status.state.replace(/\s+/g, '')} ${this.target.notify ? 'armed' : ''}">
                 <div class="target-info">
                     <div>
                         <span class="name">
@@ -202,14 +191,13 @@ export class TargetCard extends LitElement {
                         <input 
                             type="checkbox" 
                             class="notify-checkbox"
-                            .checked=${this.isArmed}
+                            .checked=${this.target.notify || false}
                             @change=${this.toggleArmed}
                         >
                         Notify
                     </label>
                     <button
                         class="action-button attack-button"
-                        ?disabled=${!isAttackable}
                         @click=${this.handleAttack}
                     >
                         Attack
@@ -236,7 +224,12 @@ export class TargetCard extends LitElement {
     }
 
     private toggleArmed(e: Event) {
-        this.isArmed = (e.target as HTMLInputElement).checked;
+        const notify = (e.target as HTMLInputElement).checked;
+        this.dispatchEvent(new CustomEvent('notify-changed', {
+            detail: { targetId: this.target.id, notify },
+            bubbles: true,
+            composed: true
+        }));
     }
 
     private handleNotesChange(e: Event) {
@@ -249,10 +242,18 @@ export class TargetCard extends LitElement {
     }
     
     private handleTimerEnd() {
-        if (this.isArmed) {
+        if (this.target.notify) {
             this.playNotificationSound();
+            // Don't auto-open attack unless desired, user just asked for notify persistence.
+            // But previous code did handleAttack() automatically. I will keep it.
             this.handleAttack();
-            this.isArmed = false; 
+            // Turn off notify after it fires? The previous code did `this.isArmed = false`. 
+            // So we should update the state to false.
+             this.dispatchEvent(new CustomEvent('notify-changed', {
+                detail: { targetId: this.target.id, notify: false },
+                bubbles: true,
+                composed: true
+            }));
         }
     }
 
@@ -273,4 +274,4 @@ export class TargetCard extends LitElement {
         oscillator.start();
         oscillator.stop(audioContext.currentTime + 0.2);
     }
-} 
+}

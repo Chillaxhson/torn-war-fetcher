@@ -13,14 +13,30 @@ export class CountdownTimer extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
-        this.intervalId = window.setInterval(() => this.updateDisplay(), 1000);
-        this.updateDisplay();
+        this.startTimer();
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
+        this.stopTimer();
+    }
+
+    updated(changedProperties: Map<string, any>) {
+        if (changedProperties.has('until')) {
+            this.stopTimer();
+            this.startTimer();
+        }
+    }
+
+    private startTimer() {
+        this.updateDisplay();
+        this.intervalId = window.setInterval(() => this.updateDisplay(), 1000);
+    }
+
+    private stopTimer() {
         if (this.intervalId) {
             window.clearInterval(this.intervalId);
+            this.intervalId = undefined;
         }
     }
 
@@ -28,12 +44,9 @@ export class CountdownTimer extends LitElement {
         const now = Math.floor(Date.now() / 1000);
         const diff = this.until - now;
 
-        if (diff <= 1) {
+        if (diff <= 0) {
             this.displayTime = 'Ready';
-            if (this.intervalId) {
-                window.clearInterval(this.intervalId);
-                this.intervalId = undefined;
-            }
+            this.stopTimer();
             this.dispatchEvent(new CustomEvent('timer-end', { bubbles: true, composed: true }));
         } else {
             const h = Math.floor(diff / 3600).toString().padStart(2, '0');
@@ -46,4 +59,4 @@ export class CountdownTimer extends LitElement {
     render() {
         return html`<span>${this.displayTime}</span>`;
     }
-} 
+}

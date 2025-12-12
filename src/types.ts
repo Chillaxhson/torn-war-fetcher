@@ -9,4 +9,5 @@ export interface Member {
     };
     notes?: string;
     hidden?: boolean;
-} 
+    notify?: boolean;
+}
