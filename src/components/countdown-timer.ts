@@ -44,7 +44,7 @@ export class CountdownTimer extends LitElement {
         const now = Math.floor(Date.now() / 1000);
         const diff = this.until - now;
 
-        if (diff <= 0) {
+        if (diff <= 1) {
             this.displayTime = 'Ready';
             this.stopTimer();
             this.dispatchEvent(new CustomEvent('timer-end', { bubbles: true, composed: true }));
