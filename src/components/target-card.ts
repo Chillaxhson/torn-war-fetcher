@@ -211,7 +211,7 @@ export class TargetCard extends LitElement {
     }
 
     private handleAttack() {
-        const attackUrl = `https://www.torn.com/loader.php?sid=attack&user2ID=${this.target.id}`;
+        const attackUrl = `https://www.torn.com/page.php?sid=attack&user2ID=${this.target.id}`;
         window.open(attackUrl, '_blank');
     }
 
