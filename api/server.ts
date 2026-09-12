@@ -45,6 +45,7 @@ app.get('/api/faction/:id', async (req: Request, res: Response) => {
     const skipSpy = req.query.skipSpy === 'true';
     const forceRefresh = req.query.forceRefresh === 'true';
     const tornStatsKey = req.headers['x-tornstats-key'] as string | undefined;
+    const ffScouterKey = req.headers['x-ffscouter-key'] as string | undefined;
 
     if (!apiKey) {
         return res.status(401).json({ error: 'API key not provided in X-API-Key header.' });
@@ -57,7 +58,7 @@ app.get('/api/faction/:id', async (req: Request, res: Response) => {
         let spyData: Record<string, any> = {};
         if (!skipSpy && memberIds.length > 0) {
             try {
-                spyData = await fetchSpyData(id, memberIds, provider, apiKey, tornStatsKey, forceRefresh);
+                spyData = await fetchSpyData(id, memberIds, provider, apiKey, tornStatsKey, forceRefresh, ffScouterKey);
             } catch (spyErr) {
                 console.error('Failed to fetch spy data for war targets:', spyErr);
             }
@@ -119,6 +120,7 @@ app.get('/api/elimination/faction/:id', async (req: Request, res: Response) => {
     const skipSpy = req.query.skipSpy === 'true';
     const forceRefresh = req.query.forceRefresh === 'true';
     const tornStatsKey = req.headers['x-tornstats-key'] as string | undefined;
+    const ffScouterKey = req.headers['x-ffscouter-key'] as string | undefined;
 
     if (!apiKey) {
         return res.status(401).json({ error: 'API key not provided in X-API-Key header.' });
@@ -135,7 +137,7 @@ app.get('/api/elimination/faction/:id', async (req: Request, res: Response) => {
         let spyData: Record<string, any> = {};
         if (!skipSpy && memberIds.length > 0) {
             try {
-                spyData = await fetchSpyData(id, memberIds, provider, apiKey, tornStatsKey, forceRefresh);
+                spyData = await fetchSpyData(id, memberIds, provider, apiKey, tornStatsKey, forceRefresh, ffScouterKey);
             } catch (spyErr) {
                 console.error('Failed to fetch spy data:', spyErr);
             }

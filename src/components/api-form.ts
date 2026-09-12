@@ -31,11 +31,17 @@ export class ApiForm extends LitElement {
     @property({ type: String })
     spyKey = '';
 
+    @property({ type: String })
+    ffScouterKey = '';
+
     @state()
     private showKey = false;
     
     @state()
     private showSpyKey = false;
+
+    @state()
+    private showFFScouterKey = false;
 
     @state()
     private isEditingStats = false;
@@ -600,8 +606,36 @@ export class ApiForm extends LitElement {
                     </div>
                 ` : ''}
 
+                ${this.spyProvider === 'ffscouter' ? html`
+                    <div style="margin-top: 0.85rem; max-width: 440px;">
+                        <div class="input-box">
+                            <label for="ffScouterKeyInput">FFScouter API Key:</label>
+                            <div class="input-wrapper">
+                                <input
+                                    type=${this.showFFScouterKey ? 'text' : 'password'}
+                                    id="ffScouterKeyInput"
+                                    .value=${this.ffScouterKey}
+                                    @input=${(e: Event) => this.ffScouterKey = (e.target as HTMLInputElement).value}
+                                    placeholder="Enter your FFScouter API Key"
+                                    autocomplete="off"
+                                >
+                                <button 
+                                    class="toggle-btn" 
+                                    @click=${() => this.showFFScouterKey = !this.showFFScouterKey}
+                                    type="button"
+                                >
+                                    ${this.showFFScouterKey ? 'Hide' : 'Show'}
+                                </button>
+                            </div>
+                            <span style="font-size: 0.72rem; color: #64748b; margin-top: 2px;">
+                                Separate API Key used exclusively for querying FFScouter.
+                            </span>
+                        </div>
+                    </div>
+                ` : ''}
+
                 ${this.spyProvider === 'tornstats' ? html`
-                    <div style="margin-top: 0.85rem; max-width: 420px;">
+                    <div style="margin-top: 0.85rem; max-width: 440px;">
                         <div class="input-box">
                             <label for="spyKeyInput">TornStats API Key:</label>
                             <div class="input-wrapper">
@@ -644,6 +678,7 @@ export class ApiForm extends LitElement {
                 factionId: this.factionId.trim(),
                 spyProvider: this.spyProvider || 'ffscouter',
                 spyKey: this.spyKey.trim(),
+                ffScouterKey: this.ffScouterKey.trim(),
             },
             bubbles: true,
             composed: true,

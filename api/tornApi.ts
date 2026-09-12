@@ -280,10 +280,12 @@ export async function fetchSpyData(
     provider: string, 
     tornKey: string, 
     tornStatsKey?: string,
-    forceRefresh = false
+    forceRefresh = false,
+    ffScouterKey?: string
 ): Promise<Record<string, { estimate: number, fairFight?: number, source: string }>> {
     const activeProvider = provider || 'ffscouter';
-    const cacheKey = `${activeProvider}_${factionId}`;
+    const effectiveFFScouterKey = ffScouterKey || tornKey;
+    const cacheKey = `${activeProvider}_${factionId}_${activeProvider === 'ffscouter' ? effectiveFFScouterKey : ''}`;
 
     if (!forceRefresh) {
         const cached = spyCache.get(cacheKey);
@@ -294,13 +296,13 @@ export async function fetchSpyData(
 
     const result: Record<string, { estimate: number, fairFight?: number, source: string }> = {};
 
-    if (activeProvider === 'ffscouter' && tornKey) {
+    if (activeProvider === 'ffscouter' && effectiveFFScouterKey) {
         // FF Scouter v2 API: https://ffscouter.com/api/v1/get-stats?key=...&targets=...
         const batchSize = 100;
         for (let i = 0; i < memberIds.length; i += batchSize) {
             const batch = memberIds.slice(i, i + batchSize);
             try {
-                const url = `https://ffscouter.com/api/v1/get-stats?key=${tornKey}&targets=${batch.join(',')}`;
+                const url = `https://ffscouter.com/api/v1/get-stats?key=${effectiveFFScouterKey}&targets=${batch.join(',')}`;
                 const res = await fetch(url, {
                     headers: {
                         'User-Agent': 'FFScouterV2-3.3'

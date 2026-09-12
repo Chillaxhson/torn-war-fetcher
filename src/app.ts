@@ -237,6 +237,7 @@ export class TornApp extends LitElement {
         this.apiKey = localStorage.getItem('tornApiKey') || '';
         this.spyProvider = localStorage.getItem('tornSpyProvider') || 'ffscouter';
         this.spyKey = localStorage.getItem('tornSpyKey') || '';
+        this.ffScouterKey = localStorage.getItem('tornFFScouterKey') || '';
         this.factionIdHistory = JSON.parse(localStorage.getItem('tornFactionIDs') || '[]');
         if (this.factionIdHistory.length > 0) {
             this.factionId = this.factionIdHistory[0];
@@ -299,6 +300,7 @@ export class TornApp extends LitElement {
                 .soundEnabled=${this.soundEnabled}
                 .spyProvider=${this.spyProvider}
                 .spyKey=${this.spyKey}
+                .ffScouterKey=${this.ffScouterKey}
                 @update-credentials=${this.handleCredentialsUpdate}
                 @update-user-stats=${this.handleUpdateUserStats}
                 @toggle-sound=${this.handleToggleSound}
@@ -492,6 +494,7 @@ export class TornApp extends LitElement {
 
     private spyProvider: string = 'ffscouter';
     private spyKey: string = '';
+    private ffScouterKey: string = '';
     private hasLoadedSpyData: boolean = false;
     private cachedMemberStats = new Map<string, { bsEstimate: number | null, bsEstimateSource?: string, fairFight?: number | null }>();
 
@@ -500,8 +503,13 @@ export class TornApp extends LitElement {
         const newFactionId = event.detail.factionId;
         const newSpyProvider = event.detail.spyProvider || 'ffscouter';
         const newSpyKey = event.detail.spyKey || '';
+        const newFFScouterKey = event.detail.ffScouterKey || '';
 
-        const credentialsChanged = (this.factionId !== newFactionId) || (this.spyProvider !== newSpyProvider) || (this.spyKey !== newSpyKey);
+        const credentialsChanged = (this.factionId !== newFactionId) || 
+            (this.spyProvider !== newSpyProvider) || 
+            (this.spyKey !== newSpyKey) || 
+            (this.ffScouterKey !== newFFScouterKey);
+            
         if (credentialsChanged) {
             this.hasLoadedSpyData = false;
             this.cachedMemberStats.clear();
@@ -511,6 +519,7 @@ export class TornApp extends LitElement {
         this.factionId = newFactionId;
         this.spyProvider = newSpyProvider;
         this.spyKey = newSpyKey;
+        this.ffScouterKey = newFFScouterKey;
 
         this.saveCredentials();
         this.fetchUserProfile();
@@ -521,6 +530,7 @@ export class TornApp extends LitElement {
         localStorage.setItem('tornApiKey', this.apiKey);
         localStorage.setItem('tornSpyProvider', this.spyProvider);
         localStorage.setItem('tornSpyKey', this.spyKey);
+        localStorage.setItem('tornFFScouterKey', this.ffScouterKey);
         
         if (this.factionId) {
             let existingIDs = JSON.parse(localStorage.getItem('tornFactionIDs') || '[]');
@@ -603,6 +613,9 @@ export class TornApp extends LitElement {
             }
 
             const headers: Record<string, string> = { 'X-API-Key': this.apiKey };
+            if (this.spyProvider === 'ffscouter' && this.ffScouterKey) {
+                headers['X-FFScouter-Key'] = this.ffScouterKey;
+            }
             if (this.spyProvider === 'tornstats' && this.spyKey) {
                 headers['X-TornStats-Key'] = this.spyKey;
             }
