@@ -268,16 +268,61 @@ export async function fetchFactionEliminationMembers(memberIds: string[]): Promi
 
     return result;
 }
+const spyCache = new Map<string, {
+    data: Record<string, { estimate: number, fairFight?: number, source: string }>,
+    timestamp: number
+}>();
+const SPY_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes in-memory cache
+
 export async function fetchSpyData(
     factionId: string, 
     memberIds: string[], 
     provider: string, 
     tornKey: string, 
-    tornStatsKey?: string
-): Promise<Record<string, { estimate: number, source: string }>> {
-    const result: Record<string, { estimate: number, source: string }> = {};
+    tornStatsKey?: string,
+    forceRefresh = false
+): Promise<Record<string, { estimate: number, fairFight?: number, source: string }>> {
+    const activeProvider = provider || 'ffscouter';
+    const cacheKey = `${activeProvider}_${factionId}`;
 
-    if (provider === 'tornstats' && tornStatsKey) {
+    if (!forceRefresh) {
+        const cached = spyCache.get(cacheKey);
+        if (cached && (Date.now() - cached.timestamp < SPY_CACHE_TTL_MS)) {
+            return cached.data;
+        }
+    }
+
+    const result: Record<string, { estimate: number, fairFight?: number, source: string }> = {};
+
+    if (activeProvider === 'ffscouter' && tornKey) {
+        // FF Scouter v2 API: https://ffscouter.com/api/v1/get-stats?key=...&targets=...
+        const batchSize = 100;
+        for (let i = 0; i < memberIds.length; i += batchSize) {
+            const batch = memberIds.slice(i, i + batchSize);
+            try {
+                const url = `https://ffscouter.com/api/v1/get-stats?key=${tornKey}&targets=${batch.join(',')}`;
+                const res = await fetch(url, {
+                    headers: {
+                        'User-Agent': 'FFScouterV2-3.3'
+                    }
+                });
+                const data = await res.json() as any;
+                if (Array.isArray(data)) {
+                    for (const item of data) {
+                        if (item && item.player_id && item.bs_estimate) {
+                            result[String(item.player_id)] = {
+                                estimate: Number(item.bs_estimate),
+                                fairFight: item.fair_fight !== undefined ? Number(item.fair_fight) : undefined,
+                                source: 'FFScouter'
+                            };
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('FFScouter API error:', e);
+            }
+        }
+    } else if (activeProvider === 'tornstats' && tornStatsKey) {
         try {
             const url = `https://www.tornstats.com/api/v2/${tornStatsKey}/spy/faction/${factionId}`;
             const res = await fetch(url);
@@ -293,7 +338,7 @@ export async function fetchSpyData(
         } catch (e) {
             console.error('TornStats API error:', e);
         }
-    } else if (provider === 'bsp' && tornKey) {
+    } else if (activeProvider === 'bsp' && tornKey) {
         // Fetch BSP (lol-manager) in small batches to avoid rate limits
         const batchSize = 5;
         for (let i = 0; i < memberIds.length; i += batchSize) {
@@ -311,6 +356,14 @@ export async function fetchSpyData(
                 }
             }));
         }
+    }
+
+    // Save to server cache if any results found
+    if (Object.keys(result).length > 0) {
+        spyCache.set(cacheKey, {
+            data: result,
+            timestamp: Date.now()
+        });
     }
 
     return result;

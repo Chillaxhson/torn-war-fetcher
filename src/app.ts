@@ -235,7 +235,7 @@ export class TornApp extends LitElement {
         }
 
         this.apiKey = localStorage.getItem('tornApiKey') || '';
-        this.spyProvider = localStorage.getItem('tornSpyProvider') || '';
+        this.spyProvider = localStorage.getItem('tornSpyProvider') || 'ffscouter';
         this.spyKey = localStorage.getItem('tornSpyKey') || '';
         this.factionIdHistory = JSON.parse(localStorage.getItem('tornFactionIDs') || '[]');
         if (this.factionIdHistory.length > 0) {
@@ -490,14 +490,28 @@ export class TornApp extends LitElement {
         this.saveTargetData();
     }
 
-    private spyProvider: string = '';
+    private spyProvider: string = 'ffscouter';
     private spyKey: string = '';
+    private hasLoadedSpyData: boolean = false;
+    private cachedMemberStats = new Map<string, { bsEstimate: number | null, bsEstimateSource?: string, fairFight?: number | null }>();
 
     private handleCredentialsUpdate(event: CustomEvent) {
-        this.apiKey = event.detail.apiKey;
-        this.factionId = event.detail.factionId;
-        this.spyProvider = event.detail.spyProvider || '';
-        this.spyKey = event.detail.spyKey || '';
+        const newApiKey = event.detail.apiKey;
+        const newFactionId = event.detail.factionId;
+        const newSpyProvider = event.detail.spyProvider || 'ffscouter';
+        const newSpyKey = event.detail.spyKey || '';
+
+        const credentialsChanged = (this.factionId !== newFactionId) || (this.spyProvider !== newSpyProvider) || (this.spyKey !== newSpyKey);
+        if (credentialsChanged) {
+            this.hasLoadedSpyData = false;
+            this.cachedMemberStats.clear();
+        }
+
+        this.apiKey = newApiKey;
+        this.factionId = newFactionId;
+        this.spyProvider = newSpyProvider;
+        this.spyKey = newSpyKey;
+
         this.saveCredentials();
         this.fetchUserProfile();
         this.startPolling();
@@ -574,16 +588,18 @@ export class TornApp extends LitElement {
         }
         this.error = '';
 
+        // Only fetch spy data if not yet loaded or on manual trigger
+        const skipSpy = isBackground && this.hasLoadedSpyData;
+
         try {
-            // If in elimination tab, use enriched endpoint
-            // Actually, we should probably always enrich if spyProvider is set, but let's just always use the enriched endpoint if we want spy data for War Targets too!
-            const baseEndpoint = (this.activeTab === 'elimination' || this.spyProvider) 
+            const baseEndpoint = this.activeTab === 'elimination' 
                 ? `/api/elimination/faction/${this.factionId}`
                 : `/api/faction/${this.factionId}`;
 
-            let endpoint = baseEndpoint;
-            if (this.spyProvider) {
-                endpoint += `?provider=${this.spyProvider}`;
+            const params = new URLSearchParams();
+            params.set('provider', this.spyProvider || 'ffscouter');
+            if (skipSpy) {
+                params.set('skipSpy', 'true');
             }
 
             const headers: Record<string, string> = { 'X-API-Key': this.apiKey };
@@ -591,7 +607,7 @@ export class TornApp extends LitElement {
                 headers['X-TornStats-Key'] = this.spyKey;
             }
 
-            const response = await fetch(endpoint, {
+            const response = await fetch(`${baseEndpoint}?${params.toString()}`, {
                 headers
             });
             const data = await response.json();
@@ -614,7 +630,33 @@ export class TornApp extends LitElement {
                 };
 
                 this.targets = Object.entries(data.members || {})
-                    .map(([id, member]) => ({ id, ...(member as any) }))
+                    .map(([id, member]: [string, any]) => {
+                        if (!skipSpy && (member.bsEstimate !== undefined || member.elimination?.bsEstimate !== undefined)) {
+                            this.cachedMemberStats.set(id, {
+                                bsEstimate: member.bsEstimate ?? member.elimination?.bsEstimate ?? null,
+                                bsEstimateSource: member.bsEstimateSource ?? member.elimination?.bsEstimateSource,
+                                fairFight: member.fairFight ?? null
+                            });
+                        }
+
+                        const cached = this.cachedMemberStats.get(id);
+                        const bsEstimate = member.bsEstimate ?? cached?.bsEstimate ?? member.elimination?.bsEstimate ?? null;
+                        const bsEstimateSource = member.bsEstimateSource ?? cached?.bsEstimateSource ?? member.elimination?.bsEstimateSource;
+                        const fairFight = member.fairFight ?? cached?.fairFight ?? null;
+
+                        return {
+                            id,
+                            ...member,
+                            bsEstimate,
+                            bsEstimateSource,
+                            fairFight,
+                            elimination: member.elimination ? {
+                                ...member.elimination,
+                                bsEstimate,
+                                bsEstimateSource
+                            } : undefined
+                        };
+                    })
                     .sort((a: Member, b: Member) => {
                         const priorityA = statusPriority[a.status?.state] || 99;
                         const priorityB = statusPriority[b.status?.state] || 99;
@@ -627,6 +669,11 @@ export class TornApp extends LitElement {
                         const b_until = b.status?.until || 0;
                         return a_until - b_until;
                     });
+
+                if (!skipSpy) {
+                    this.hasLoadedSpyData = true;
+                }
+
                 this.loadTargetData();
                 
                 const now = new Date();

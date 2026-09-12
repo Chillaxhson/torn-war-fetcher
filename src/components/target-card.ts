@@ -197,7 +197,7 @@ export class TargetCard extends LitElement {
             border: 1px solid rgba(100, 116, 139, 0.3);
         }
 
-        .elim-badges {
+        .elim-badges, .stats-badges {
             display: flex;
             align-items: center;
             gap: 0.5rem;
@@ -351,8 +351,11 @@ export class TargetCard extends LitElement {
         const actDotClass = actStatus === 'online' ? 'online' : actStatus === 'idle' ? 'idle' : 'offline';
         const lastActionText = this.target.last_action?.relative || '';
 
-        // Calculate Fair Fight if target has elimination / estimated stats
-        const ffInfo = calculateFairFight(this.target.elimination?.bsEstimate, this.userBattleStats);
+        // Calculate Fair Fight from target's stats
+        const bsEstimate = this.target.bsEstimate ?? this.target.elimination?.bsEstimate ?? null;
+        const bsSource = this.target.bsEstimateSource ?? this.target.elimination?.bsEstimateSource ?? 'FFScouter';
+        const ffInfo = calculateFairFight(bsEstimate, this.userBattleStats);
+        const effectiveFF = (!this.userBattleStats && this.target.fairFight) ? this.target.fairFight : ffInfo.fairFight;
 
         return html`
             <div class="target-card status-${stateNormalized} ${this.target.notify ? 'armed' : ''}">
@@ -386,28 +389,21 @@ export class TargetCard extends LitElement {
                         ` : ''}
                     </div>
 
-                    ${this.target.elimination?.teamName && this.target.elimination.teamName !== 'None' ? html`
-                        <div class="elim-badges">
-                            <span class="team-chip" title="Elimination Team">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                                </svg>
-                                ${this.target.elimination.teamName}
-                            </span>
-
-                            ${ffInfo.fairFight ? html`
+                    ${(effectiveFF || bsEstimate) ? html`
+                        <div class="stats-badges">
+                            ${effectiveFF ? html`
                                 <span 
                                     class="ff-chip" 
                                     style="background: ${ffInfo.color}15; color: ${ffInfo.textColor}; border-color: ${ffInfo.color}40;"
-                                    title="Fair Fight: ${ffInfo.fairFight.toFixed(2)} (${ffInfo.difficulty})"
+                                    title="Fair Fight: ${effectiveFF.toFixed(2)} (${ffInfo.difficulty})"
                                 >
-                                    FF ${ffInfo.fairFight.toFixed(2)} &middot; ${ffInfo.difficulty}
+                                    FF ${effectiveFF.toFixed(2)} &middot; ${ffInfo.difficulty}
                                 </span>
                             ` : ''}
 
-                            ${this.target.elimination?.bsEstimate ? html`
-                                <span class="stats-est" title="Estimated Battle Stats from ${this.target.elimination.bsEstimateSource || 'TornCortex'}">
-                                    ~${this.formatNumber(this.target.elimination.bsEstimate)} stats (${this.target.elimination.bsEstimateSource === 'TornStats' ? 'TS' : this.target.elimination.bsEstimateSource === 'BSP' ? 'BSP' : 'TC'})
+                            ${bsEstimate ? html`
+                                <span class="stats-est" title="Estimated Battle Stats from ${bsSource}">
+                                    ~${this.formatNumber(bsEstimate)} stats (${bsSource === 'TornStats' ? 'TS' : bsSource === 'BSP' ? 'BSP' : bsSource === 'TornCortex' ? 'TC' : 'FFS'})
                                 </span>
                             ` : ''}
                         </div>

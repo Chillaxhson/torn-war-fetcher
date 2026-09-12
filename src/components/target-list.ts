@@ -87,31 +87,48 @@ export class TargetList extends LitElement {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 1rem;
+            gap: 0.75rem 1rem;
             flex-wrap: wrap;
             background: #121620;
             border: 1px solid #242c3f;
             border-radius: 8px;
-            padding: 0.75rem 1rem;
+            padding: 0.65rem 0.85rem;
             margin-bottom: 1.25rem;
+        }
+
+        .toolbar-main {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            flex: 1 1 auto;
+        }
+
+        .toolbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
         }
 
         .search-box {
             position: relative;
-            flex-grow: 1;
-            min-width: 180px;
-            max-width: 320px;
+            width: 220px;
+            flex-shrink: 0;
         }
 
         .search-box input {
             width: 100%;
-            padding: 0.45rem 0.75rem 0.45rem 2rem;
+            height: 34px;
+            box-sizing: border-box;
+            padding: 0 0.75rem 0 2rem;
             border-radius: 6px;
             border: 1px solid #28334a;
             background: #0d1017;
             color: #f1f5f9;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-family: inherit;
+            transition: border-color 0.2s;
         }
 
         .search-box input:focus {
@@ -125,6 +142,7 @@ export class TargetList extends LitElement {
             top: 50%;
             transform: translateY(-50%);
             color: #64748b;
+            pointer-events: none;
         }
 
         .filter-chips {
@@ -138,7 +156,11 @@ export class TargetList extends LitElement {
             background: #191f2d;
             border: 1px solid #28334a;
             color: #94a3b8;
-            padding: 0.35rem 0.75rem;
+            height: 34px;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            padding: 0 0.75rem;
             border-radius: 6px;
             font-size: 0.8rem;
             font-weight: 600;
@@ -163,7 +185,9 @@ export class TargetList extends LitElement {
         }
 
         .sort-select {
-            padding: 0.45rem 0.75rem;
+            height: 34px;
+            box-sizing: border-box;
+            padding: 0 0.65rem;
             border-radius: 6px;
             border: 1px solid #28334a;
             background: #0d1017;
@@ -171,6 +195,7 @@ export class TargetList extends LitElement {
             font-size: 0.8rem;
             font-family: inherit;
             cursor: pointer;
+            transition: border-color 0.2s;
         }
 
         .sort-select:focus {
@@ -179,10 +204,14 @@ export class TargetList extends LitElement {
         }
 
         .btn-text {
+            height: 34px;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
             background: none;
             border: 1px solid #334155;
             color: #94a3b8;
-            padding: 0.35rem 0.75rem;
+            padding: 0 0.75rem;
             border-radius: 6px;
             font-size: 0.8rem;
             cursor: pointer;
@@ -376,57 +405,60 @@ export class TargetList extends LitElement {
 
             <!-- Toolbar -->
             <div class="filter-toolbar">
-                <div class="search-box">
-                    <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"/>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                    </svg>
-                    <input
-                        type="text"
-                        placeholder="Search targets..."
-                        .value=${this.searchQuery}
-                        @input=${(e: any) => this.searchQuery = e.target.value}
-                    >
+                <div class="toolbar-main">
+                    <div class="search-box">
+                        <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <input
+                            type="text"
+                            placeholder="Search targets..."
+                            .value=${this.searchQuery}
+                            @input=${(e: any) => this.searchQuery = e.target.value}
+                        >
+                    </div>
+
+                    <div class="filter-chips">
+                        <button 
+                            class="chip-btn ${this.filterStatus === 'all' ? 'active' : ''}"
+                            @click=${() => this.filterStatus = 'all'}
+                        >
+                            All (${totalCount})
+                        </button>
+                        <button 
+                            class="chip-btn badge-okay ${this.filterStatus === 'okay' ? 'active' : ''}"
+                            @click=${() => this.filterStatus = 'okay'}
+                        >
+                            Okay (${okayCount})
+                        </button>
+                        <button 
+                            class="chip-btn ${this.filterStatus === 'hospital' ? 'active' : ''}"
+                            @click=${() => this.filterStatus = 'hospital'}
+                        >
+                            Hospital (${hospCount})
+                        </button>
+                        <button 
+                            class="chip-btn ${this.filterStatus === 'abroad' ? 'active' : ''}"
+                            @click=${() => this.filterStatus = 'abroad'}
+                        >
+                            Abroad (${abroadCount})
+                        </button>
+                        <button 
+                            class="chip-btn ${this.filterStatus === 'online' ? 'active' : ''}"
+                            @click=${() => this.filterStatus = 'online'}
+                        >
+                            Online (${onlineCount})
+                        </button>
+                    </div>
                 </div>
 
-                <div class="filter-chips">
-                    <button 
-                        class="chip-btn ${this.filterStatus === 'all' ? 'active' : ''}"
-                        @click=${() => this.filterStatus = 'all'}
-                    >
-                        All (${totalCount})
-                    </button>
-                    <button 
-                        class="chip-btn badge-okay ${this.filterStatus === 'okay' ? 'active' : ''}"
-                        @click=${() => this.filterStatus = 'okay'}
-                    >
-                        Okay (${okayCount})
-                    </button>
-                    <button 
-                        class="chip-btn ${this.filterStatus === 'hospital' ? 'active' : ''}"
-                        @click=${() => this.filterStatus = 'hospital'}
-                    >
-                        Hospital (${hospCount})
-                    </button>
-                    <button 
-                        class="chip-btn ${this.filterStatus === 'abroad' ? 'active' : ''}"
-                        @click=${() => this.filterStatus = 'abroad'}
-                    >
-                        Abroad (${abroadCount})
-                    </button>
-                    <button 
-                        class="chip-btn ${this.filterStatus === 'online' ? 'active' : ''}"
-                        @click=${() => this.filterStatus = 'online'}
-                    >
-                        Online (${onlineCount})
-                    </button>
-                </div>
-
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <div class="toolbar-actions">
                     <select 
                         class="sort-select"
                         .value=${this.ffFilter}
                         @change=${(e: any) => this.ffFilter = e.target.value}
+                        title="Filter by Fair Fight"
                     >
                         <option value="all">Any FF</option>
                         <option value="3">FF 3.0+</option>
@@ -440,6 +472,7 @@ export class TargetList extends LitElement {
                         class="sort-select"
                         .value=${this.sortBy}
                         @change=${(e: any) => this.sortBy = e.target.value}
+                        title="Sort target list"
                     >
                         <option value="status">Sort: Status & Time</option>
                         <option value="ff-desc">Sort: FF (High to Low)</option>

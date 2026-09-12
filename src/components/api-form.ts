@@ -26,7 +26,7 @@ export class ApiForm extends LitElement {
     soundEnabled = true;
 
     @property({ type: String })
-    spyProvider = '';
+    spyProvider = 'ffscouter';
 
     @property({ type: String })
     spyKey = '';
@@ -181,12 +181,23 @@ export class ApiForm extends LitElement {
 
         .form-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr auto auto;
+            grid-template-columns: 1.2fr 0.85fr 1fr auto;
             gap: 0.85rem;
             align-items: flex-end;
         }
 
-        @media (max-width: 860px) {
+        @media (max-width: 960px) {
+            .form-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .action-group {
+                grid-column: 1 / -1;
+                display: flex;
+                gap: 0.5rem;
+            }
+        }
+
+        @media (max-width: 560px) {
             .form-grid {
                 grid-template-columns: 1fr;
             }
@@ -195,14 +206,15 @@ export class ApiForm extends LitElement {
         .input-box {
             display: flex;
             flex-direction: column;
-            gap: 0.4rem;
+            gap: 0.35rem;
         }
 
         label {
             color: #94a3b8;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-weight: 600;
             letter-spacing: 0.02em;
+            line-height: 1.2;
         }
 
         .input-wrapper {
@@ -211,19 +223,25 @@ export class ApiForm extends LitElement {
             align-items: center;
         }
 
-        input {
+        input, select {
             width: 100%;
-            padding: 0.65rem 0.85rem;
+            height: 38px;
+            box-sizing: border-box;
+            padding: 0 0.85rem;
             border: 1px solid #28334a;
             border-radius: 6px;
             background-color: #0d1017;
             color: #f1f5f9;
             font-family: inherit;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             transition: border-color 0.2s, box-shadow 0.2s;
         }
 
-        input:focus {
+        select {
+            cursor: pointer;
+        }
+
+        input:focus, select:focus {
             outline: none;
             border-color: #3b82f6;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
@@ -478,47 +496,6 @@ export class ApiForm extends LitElement {
                     </div>
                 ` : ''}
 
-                <div class="form-grid" style="margin-bottom: 1rem;">
-                    <div class="input-box">
-                        <label for="spyProvider">Spy Data Provider (Optional):</label>
-                        <select 
-                            id="spyProvider" 
-                            style="padding: 0.6rem 0.8rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-dark); color: #f1f5f9; font-size: 0.95rem;"
-                            .value=${this.spyProvider}
-                            @change=${(e: any) => { this.spyProvider = e.target.value; this.dispatchUpdate(); }}
-                        >
-                            <option value="">TornCortex (Default)</option>
-                            <option value="tornstats">TornStats API</option>
-                            <option value="bsp">BSP (lol-manager)</option>
-                        </select>
-                    </div>
-                    
-                    ${this.spyProvider === 'tornstats' ? html`
-                        <div class="input-box">
-                            <label for="spyKeyInput">TornStats API Key:</label>
-                            <div class="input-wrapper">
-                                <input
-                                    type=${this.showSpyKey ? 'text' : 'password'}
-                                    id="spyKeyInput"
-                                    .value=${this.spyKey}
-                                    @input=${(e: Event) => this.spyKey = (e.target as HTMLInputElement).value}
-                                    placeholder="Enter TornStats Key"
-                                    autocomplete="off"
-                                >
-                                <button 
-                                    class="toggle-btn" 
-                                    @click=${() => this.showSpyKey = !this.showSpyKey}
-                                    type="button"
-                                >
-                                    ${this.showSpyKey ? 'Hide' : 'Show'}
-                                </button>
-                            </div>
-                        </div>
-                    ` : html`
-                        <div class="input-box" style="visibility: hidden;"></div>
-                    `}
-                </div>
-
                 <div class="form-grid">
                     <div class="input-box">
                         <label for="apiKeyInput">Torn API Key:</label>
@@ -557,54 +534,96 @@ export class ApiForm extends LitElement {
                                 ${this.factionIdHistory.map(id => html`<option .value=${id}></option>`)}
                             </datalist>
                         </div>
-                        ${this.factionIdHistory.length > 0 ? html`
-                            <div class="recent-chips">
-                                <span>Recent:</span>
-                                ${this.factionIdHistory.slice(0, 4).map(id => html`
-                                    <span class="chip-id" @click=${() => { this.factionId = id; this.dispatchUpdate(); }}>
-                                        ${id}
-                                    </span>
-                                `)}
-                            </div>
-                        ` : ''}
                     </div>
 
-                    <button 
-                        class="btn-primary" 
-                        @click=${this.dispatchUpdate}
-                        ?disabled=${this.isLoading || !this.apiKey || !this.factionId}
-                    >
-                        ${this.isLoading ? html`<span>Loading...</span>` : html`
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                                <path d="M3 3v5h5"/>
-                                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-                                <path d="M16 21h5v-5"/>
-                            </svg>
-                            <span>Fetch Targets</span>
-                        `}
-                    </button>
+                    <div class="input-box">
+                        <label for="spyProvider">Spy Data Provider:</label>
+                        <select 
+                            id="spyProvider" 
+                            .value=${this.spyProvider || 'ffscouter'}
+                            @change=${(e: any) => { this.spyProvider = e.target.value; this.dispatchUpdate(); }}
+                        >
+                            <option value="ffscouter">FFScouter v2 (Default)</option>
+                            <option value="tornstats">TornStats API</option>
+                            <option value="bsp">BSP (lol-manager)</option>
+                            <option value="torncortex">TornCortex</option>
+                        </select>
+                    </div>
 
-                    <button 
-                        class="btn-icon ${this.soundEnabled ? 'active' : ''}" 
-                        @click=${this.toggleSound}
-                        title=${this.soundEnabled ? 'Audio alerts enabled' : 'Audio alerts muted'}
-                        type="button"
-                    >
-                        ${this.soundEnabled ? html`
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
-                            </svg>
-                        ` : html`
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                                <line x1="23" y1="9" x2="17" y2="15"/>
-                                <line x1="17" y1="9" x2="23" y2="15"/>
-                            </svg>
-                        `}
-                    </button>
+                    <div class="action-group" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <button 
+                            class="btn-primary" 
+                            @click=${this.dispatchUpdate}
+                            ?disabled=${this.isLoading || !this.apiKey || !this.factionId}
+                        >
+                            ${this.isLoading ? html`<span>Loading...</span>` : html`
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                    <path d="M3 3v5h5"/>
+                                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                                    <path d="M16 21h5v-5"/>
+                                </svg>
+                                <span>Fetch Targets</span>
+                            `}
+                        </button>
+
+                        <button 
+                            class="btn-icon ${this.soundEnabled ? 'active' : ''}" 
+                            @click=${this.toggleSound}
+                            title=${this.soundEnabled ? 'Audio alerts enabled' : 'Audio alerts muted'}
+                            type="button"
+                        >
+                            ${this.soundEnabled ? html`
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                </svg>
+                            ` : html`
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                    <line x1="23" y1="9" x2="17" y2="15"/>
+                                    <line x1="17" y1="9" x2="23" y2="15"/>
+                                </svg>
+                            `}
+                        </button>
+                    </div>
                 </div>
+
+                ${this.factionIdHistory.length > 0 ? html`
+                    <div class="recent-chips" style="margin-top: 0.6rem;">
+                        <span>Recent:</span>
+                        ${this.factionIdHistory.slice(0, 5).map(id => html`
+                            <span class="chip-id" @click=${() => { this.factionId = id; this.dispatchUpdate(); }}>
+                                ${id}
+                            </span>
+                        `)}
+                    </div>
+                ` : ''}
+
+                ${this.spyProvider === 'tornstats' ? html`
+                    <div style="margin-top: 0.85rem; max-width: 420px;">
+                        <div class="input-box">
+                            <label for="spyKeyInput">TornStats API Key:</label>
+                            <div class="input-wrapper">
+                                <input
+                                    type=${this.showSpyKey ? 'text' : 'password'}
+                                    id="spyKeyInput"
+                                    .value=${this.spyKey}
+                                    @input=${(e: Event) => this.spyKey = (e.target as HTMLInputElement).value}
+                                    placeholder="Enter your TornStats API Key"
+                                    autocomplete="off"
+                                >
+                                <button 
+                                    class="toggle-btn" 
+                                    @click=${() => this.showSpyKey = !this.showSpyKey}
+                                    type="button"
+                                >
+                                    ${this.showSpyKey ? 'Hide' : 'Show'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
             </div>
         `;
     }
@@ -623,7 +642,7 @@ export class ApiForm extends LitElement {
             detail: {
                 apiKey: this.apiKey.trim(),
                 factionId: this.factionId.trim(),
-                spyProvider: this.spyProvider,
+                spyProvider: this.spyProvider || 'ffscouter',
                 spyKey: this.spyKey.trim(),
             },
             bubbles: true,

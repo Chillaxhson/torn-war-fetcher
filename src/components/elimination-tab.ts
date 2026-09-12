@@ -863,11 +863,12 @@ export class EliminationTab extends LitElement {
 
                     <div class="board-list">
                         ${sorted.length > 0 ? sorted.map((target, idx) => {
-                            const ff = calculateFairFight(target.elimination?.bsEstimate, this.userBattleStats);
+                            const est = target.bsEstimate ?? target.elimination?.bsEstimate ?? null;
+                            const ff = calculateFairFight(est, this.userBattleStats);
                             const act = (target.last_action?.status || 'Offline').toLowerCase();
                             const actClass = act === 'online' ? 'online' : act === 'idle' ? 'idle' : 'offline';
                             const stateNormalized = (target.status?.state || 'Offline').replace(/\s+/g, '');
-                            const attackUrl = `https://www.torn.com/loader.php?sid=attack&user2ID=${target.id}`;
+                            const attackUrl = `https://www.torn.com/page.php?sid=attack&user2ID=${target.id}`;
 
                             return html`
                                 <div class="board-row status-${stateNormalized} ${target.notify ? 'armed' : ''}">
@@ -960,7 +961,7 @@ export class EliminationTab extends LitElement {
             if (this.soundEnabled) {
                 this.playNotificationSound();
             }
-            window.open(`https://www.torn.com/loader.php?sid=attack&user2ID=${target.id}`, '_blank');
+            window.open(`https://www.torn.com/page.php?sid=attack&user2ID=${target.id}`, '_blank');
             this.dispatchEvent(new CustomEvent('update-target', {
                 detail: { targetId: target.id, changes: { notify: false } },
                 bubbles: true,

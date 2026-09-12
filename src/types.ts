@@ -29,6 +29,9 @@ export interface Member {
     status: MemberStatus;
     last_action?: MemberLastAction;
     elimination?: MemberElimination;
+    bsEstimate?: number | null;
+    bsEstimateSource?: string; // 'FFScouter' | 'TornStats' | 'BSP' | 'TornCortex'
+    fairFight?: number | null;
     notes?: string;
     hidden?: boolean;
     notify?: boolean;

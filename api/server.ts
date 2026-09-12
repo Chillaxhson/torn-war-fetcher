@@ -5,7 +5,8 @@ import {
     fetchFactionData, 
     fetchUserData, 
     fetchEliminationTeams, 
-    fetchFactionEliminationMembers 
+    fetchFactionEliminationMembers,
+    fetchSpyData
 } from './tornApi.js';
 import { fileURLToPath } from 'url';
 
@@ -36,18 +37,47 @@ app.get('/api/user/me', async (req: Request, res: Response) => {
     }
 });
 
-// Basic Faction Data (used by War Targets)
+// Faction Data for War Targets (no elimination baggage, enriched with spy data)
 app.get('/api/faction/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const apiKey = req.headers['x-api-key'] as string;
+    const provider = (req.query.provider as string) || 'ffscouter';
+    const skipSpy = req.query.skipSpy === 'true';
+    const forceRefresh = req.query.forceRefresh === 'true';
+    const tornStatsKey = req.headers['x-tornstats-key'] as string | undefined;
 
     if (!apiKey) {
         return res.status(401).json({ error: 'API key not provided in X-API-Key header.' });
     }
 
     try {
-        const data = await fetchFactionData(id, apiKey);
-        res.json(data);
+        const factionData = await fetchFactionData(id, apiKey);
+        const memberIds = Object.keys(factionData.members || {});
+        
+        let spyData: Record<string, any> = {};
+        if (!skipSpy && memberIds.length > 0) {
+            try {
+                spyData = await fetchSpyData(id, memberIds, provider, apiKey, tornStatsKey, forceRefresh);
+            } catch (spyErr) {
+                console.error('Failed to fetch spy data for war targets:', spyErr);
+            }
+        }
+
+        const membersWithStats: Record<string, any> = {};
+        for (const [mId, mInfo] of Object.entries(factionData.members || {})) {
+            const spy = spyData[mId];
+            membersWithStats[mId] = {
+                ...(mInfo as any),
+                bsEstimate: spy ? spy.estimate : null,
+                bsEstimateSource: spy ? spy.source : null,
+                fairFight: spy?.fairFight || null,
+            };
+        }
+
+        res.json({
+            ...factionData,
+            members: membersWithStats
+        });
     } catch (error: any) {
         console.error('Error fetching faction data:', error);
         res.status(500).json({ error: 'Failed to fetch data from Torn API.', details: error.message });
@@ -81,13 +111,13 @@ app.post('/api/elimination/members', async (req: Request, res: Response) => {
     }
 });
 
-// Enriched Faction Data with Elimination Info
+// Enriched Faction Data with Elimination Info (Used by Elimination Tab)
 app.get('/api/elimination/faction/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const apiKey = req.headers['x-api-key'] as string;
-    
-    // Support Spy Data Provider optionally
-    const provider = req.query.provider as string | undefined;
+    const provider = (req.query.provider as string) || 'ffscouter';
+    const skipSpy = req.query.skipSpy === 'true';
+    const forceRefresh = req.query.forceRefresh === 'true';
     const tornStatsKey = req.headers['x-tornstats-key'] as string | undefined;
 
     if (!apiKey) {
@@ -103,14 +133,11 @@ app.get('/api/elimination/faction/:id', async (req: Request, res: Response) => {
         
         // Optionally fetch spy data
         let spyData: Record<string, any> = {};
-        if (provider) {
+        if (!skipSpy && memberIds.length > 0) {
             try {
-                // We will implement this in tornApi.ts
-                const { fetchSpyData } = await import('./tornApi.js');
-                spyData = await fetchSpyData(id, memberIds, provider, apiKey, tornStatsKey);
+                spyData = await fetchSpyData(id, memberIds, provider, apiKey, tornStatsKey, forceRefresh);
             } catch (spyErr) {
                 console.error('Failed to fetch spy data:', spyErr);
-                // Continue with just TornCortex data if spy fails
             }
         }
         
@@ -124,15 +151,19 @@ app.get('/api/elimination/faction/:id', async (req: Request, res: Response) => {
             };
             
             // Overlay spy data if available
-            if (spyData[mId]) {
-                elimInfo.bsEstimate = spyData[mId].estimate;
-                elimInfo.bsEstimateSource = spyData[mId].source;
+            const spy = spyData[mId];
+            if (spy) {
+                elimInfo.bsEstimate = spy.estimate;
+                elimInfo.bsEstimateSource = spy.source;
             } else if (!elimInfo.bsEstimateSource) {
                 elimInfo.bsEstimateSource = 'TornCortex';
             }
 
             enrichedMembers[mId] = {
                 ...(mInfo as any),
+                bsEstimate: elimInfo.bsEstimate,
+                bsEstimateSource: elimInfo.bsEstimateSource,
+                fairFight: spy?.fairFight || null,
                 elimination: elimInfo
             };
         }
