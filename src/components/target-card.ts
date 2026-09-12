@@ -406,8 +406,8 @@ export class TargetCard extends LitElement {
                             ` : ''}
 
                             ${this.target.elimination?.bsEstimate ? html`
-                                <span class="stats-est" title="Estimated Battle Stats">
-                                    ~${this.formatNumber(this.target.elimination.bsEstimate)} stats
+                                <span class="stats-est" title="Estimated Battle Stats from ${this.target.elimination.bsEstimateSource || 'TornCortex'}">
+                                    ~${this.formatNumber(this.target.elimination.bsEstimate)} stats (${this.target.elimination.bsEstimateSource === 'TornStats' ? 'TS' : this.target.elimination.bsEstimateSource === 'BSP' ? 'BSP' : 'TC'})
                                 </span>
                             ` : ''}
                         </div>

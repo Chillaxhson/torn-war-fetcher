@@ -31,6 +31,7 @@ interface CachedEliminationMember {
     teamId: number | null;
     teamName: string;
     bsEstimate: number | null;
+    bsEstimateSource?: string;
     attacks?: number;
     fetchedAt: number;
 }
@@ -263,6 +264,53 @@ export async function fetchFactionEliminationMembers(memberIds: string[]): Promi
             result[id] = data;
         });
         await Promise.all(batchPromises);
+    }
+
+    return result;
+}
+export async function fetchSpyData(
+    factionId: string, 
+    memberIds: string[], 
+    provider: string, 
+    tornKey: string, 
+    tornStatsKey?: string
+): Promise<Record<string, { estimate: number, source: string }>> {
+    const result: Record<string, { estimate: number, source: string }> = {};
+
+    if (provider === 'tornstats' && tornStatsKey) {
+        try {
+            const url = `https://www.tornstats.com/api/v2/${tornStatsKey}/spy/faction/${factionId}`;
+            const res = await fetch(url);
+            const data = await res.json() as any;
+            if (data && data.status && data.faction && data.faction.members) {
+                for (const [mId, mData] of Object.entries(data.faction.members)) {
+                    const mAny = mData as any;
+                    if (mAny.spy && mAny.spy.total) {
+                        result[mId] = { estimate: Number(mAny.spy.total), source: 'TornStats' };
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('TornStats API error:', e);
+        }
+    } else if (provider === 'bsp' && tornKey) {
+        // Fetch BSP (lol-manager) in small batches to avoid rate limits
+        const batchSize = 5;
+        for (let i = 0; i < memberIds.length; i += batchSize) {
+            const batch = memberIds.slice(i, i + batchSize);
+            await Promise.all(batch.map(async (mId) => {
+                try {
+                    const url = `https://www.lol-manager.com/api/battlestats/${tornKey}/${mId}/torn-bsp-faction-export`;
+                    const res = await fetch(url);
+                    const data = await res.json() as any;
+                    if (data && data.TBS > 0) {
+                        result[mId] = { estimate: Number(data.TBS), source: 'BSP' };
+                    }
+                } catch (e) {
+                    // Ignore individual failures
+                }
+            }));
+        }
     }
 
     return result;

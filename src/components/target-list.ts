@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { Member } from '../types.js';
+import { Member, calculateFairFight } from '../types.js';
 import './target-card.js';
 
 @customElement('target-list')
@@ -25,6 +25,9 @@ export class TargetList extends LitElement {
 
     @state()
     private filterStatus = 'all'; // 'all' | 'okay' | 'hospital' | 'abroad' | 'online'
+    
+    @state()
+    private ffFilter = 'all'; // 'all' | '3' | '2.5' | '2' | '1' | 'unknown'
 
     @state()
     private sortBy = 'status'; // 'status' | 'level-desc' | 'level-asc' | 'name'
@@ -314,10 +317,29 @@ export class TargetList extends LitElement {
             }
 
             // Status filter
-            if (this.filterStatus === 'okay') return t.status?.state === 'Okay';
-            if (this.filterStatus === 'hospital') return t.status?.state === 'Hospital';
-            if (this.filterStatus === 'abroad') return t.status?.state === 'Abroad' || t.status?.state === 'Traveling';
-            if (this.filterStatus === 'online') return t.last_action?.status?.toLowerCase() === 'online';
+            if (this.filterStatus === 'okay') {
+                if (t.status?.state !== 'Okay') return false;
+            } else if (this.filterStatus === 'hospital') {
+                if (t.status?.state !== 'Hospital') return false;
+            } else if (this.filterStatus === 'abroad') {
+                if (t.status?.state !== 'Abroad' && t.status?.state !== 'Traveling') return false;
+            } else if (this.filterStatus === 'online') {
+                if (t.last_action?.status?.toLowerCase() !== 'online') return false;
+            }
+            
+            // FF Filter
+            if (this.ffFilter !== 'all') {
+                const ff = calculateFairFight(t.elimination?.bsEstimate, this.userBattleStats);
+                if (this.ffFilter === 'unknown' && ff.fairFight !== null) return false;
+                if (this.ffFilter !== 'unknown') {
+                    if (ff.fairFight === null) return false;
+                    const fVal = ff.fairFight;
+                    if (this.ffFilter === '3' && fVal < 3) return false;
+                    if (this.ffFilter === '2.5' && (fVal < 2.5 || fVal >= 3)) return false;
+                    if (this.ffFilter === '2' && (fVal < 2 || fVal >= 2.5)) return false;
+                    if (this.ffFilter === '1' && (fVal < 1 || fVal >= 2)) return false;
+                }
+            }
 
             return true;
         });
@@ -403,10 +425,25 @@ export class TargetList extends LitElement {
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                     <select 
                         class="sort-select"
+                        .value=${this.ffFilter}
+                        @change=${(e: any) => this.ffFilter = e.target.value}
+                    >
+                        <option value="all">Any FF</option>
+                        <option value="3">FF 3.0+</option>
+                        <option value="2.5">FF 2.5 - 3.0</option>
+                        <option value="2">FF 2.0 - 2.5</option>
+                        <option value="1">FF 1.0 - 2.0</option>
+                        <option value="unknown">Unknown Stats</option>
+                    </select>
+
+                    <select 
+                        class="sort-select"
                         .value=${this.sortBy}
                         @change=${(e: any) => this.sortBy = e.target.value}
                     >
                         <option value="status">Sort: Status & Time</option>
+                        <option value="ff-desc">Sort: FF (High to Low)</option>
+                        <option value="ff-asc">Sort: FF (Low to High)</option>
                         <option value="level-desc">Sort: Level (High to Low)</option>
                         <option value="level-asc">Sort: Level (Low to High)</option>
                         <option value="name">Sort: Name (A-Z)</option>
@@ -492,6 +529,13 @@ export class TargetList extends LitElement {
         };
 
         return [...list].sort((a, b) => {
+            if (this.sortBy === 'ff-desc' || this.sortBy === 'ff-asc') {
+                const ffA = calculateFairFight(a.elimination?.bsEstimate, this.userBattleStats).fairFight || 999;
+                const ffB = calculateFairFight(b.elimination?.bsEstimate, this.userBattleStats).fairFight || 999;
+                if (this.sortBy === 'ff-desc') return ffB - ffA;
+                return ffA - ffB;
+            }
+            
             if (this.sortBy === 'level-desc') {
                 return b.level - a.level;
             }

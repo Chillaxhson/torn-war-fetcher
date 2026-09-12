@@ -85,6 +85,10 @@ app.post('/api/elimination/members', async (req: Request, res: Response) => {
 app.get('/api/elimination/faction/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const apiKey = req.headers['x-api-key'] as string;
+    
+    // Support Spy Data Provider optionally
+    const provider = req.query.provider as string | undefined;
+    const tornStatsKey = req.headers['x-tornstats-key'] as string | undefined;
 
     if (!apiKey) {
         return res.status(401).json({ error: 'API key not provided in X-API-Key header.' });
@@ -97,7 +101,20 @@ app.get('/api/elimination/faction/:id', async (req: Request, res: Response) => {
         // Enrich members with elimination data
         const eliminationData = await fetchFactionEliminationMembers(memberIds);
         
-        // Merge elimination data into members
+        // Optionally fetch spy data
+        let spyData: Record<string, any> = {};
+        if (provider) {
+            try {
+                // We will implement this in tornApi.ts
+                const { fetchSpyData } = await import('./tornApi.js');
+                spyData = await fetchSpyData(id, memberIds, provider, apiKey, tornStatsKey);
+            } catch (spyErr) {
+                console.error('Failed to fetch spy data:', spyErr);
+                // Continue with just TornCortex data if spy fails
+            }
+        }
+        
+        // Merge elimination data and spy data into members
         const enrichedMembers: Record<string, any> = {};
         for (const [mId, mInfo] of Object.entries(factionData.members || {})) {
             const elimInfo = eliminationData[mId] || {
@@ -105,6 +122,15 @@ app.get('/api/elimination/faction/:id', async (req: Request, res: Response) => {
                 teamName: 'None',
                 bsEstimate: null
             };
+            
+            // Overlay spy data if available
+            if (spyData[mId]) {
+                elimInfo.bsEstimate = spyData[mId].estimate;
+                elimInfo.bsEstimateSource = spyData[mId].source;
+            } else if (!elimInfo.bsEstimateSource) {
+                elimInfo.bsEstimateSource = 'TornCortex';
+            }
+
             enrichedMembers[mId] = {
                 ...(mInfo as any),
                 elimination: elimInfo

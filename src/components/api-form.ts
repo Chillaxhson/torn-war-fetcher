@@ -25,8 +25,17 @@ export class ApiForm extends LitElement {
     @property({ type: Boolean })
     soundEnabled = true;
 
+    @property({ type: String })
+    spyProvider = '';
+
+    @property({ type: String })
+    spyKey = '';
+
     @state()
     private showKey = false;
+    
+    @state()
+    private showSpyKey = false;
 
     @state()
     private isEditingStats = false;
@@ -469,6 +478,47 @@ export class ApiForm extends LitElement {
                     </div>
                 ` : ''}
 
+                <div class="form-grid" style="margin-bottom: 1rem;">
+                    <div class="input-box">
+                        <label for="spyProvider">Spy Data Provider (Optional):</label>
+                        <select 
+                            id="spyProvider" 
+                            style="padding: 0.6rem 0.8rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-dark); color: #f1f5f9; font-size: 0.95rem;"
+                            .value=${this.spyProvider}
+                            @change=${(e: any) => { this.spyProvider = e.target.value; this.dispatchUpdate(); }}
+                        >
+                            <option value="">TornCortex (Default)</option>
+                            <option value="tornstats">TornStats API</option>
+                            <option value="bsp">BSP (lol-manager)</option>
+                        </select>
+                    </div>
+                    
+                    ${this.spyProvider === 'tornstats' ? html`
+                        <div class="input-box">
+                            <label for="spyKeyInput">TornStats API Key:</label>
+                            <div class="input-wrapper">
+                                <input
+                                    type=${this.showSpyKey ? 'text' : 'password'}
+                                    id="spyKeyInput"
+                                    .value=${this.spyKey}
+                                    @input=${(e: Event) => this.spyKey = (e.target as HTMLInputElement).value}
+                                    placeholder="Enter TornStats Key"
+                                    autocomplete="off"
+                                >
+                                <button 
+                                    class="toggle-btn" 
+                                    @click=${() => this.showSpyKey = !this.showSpyKey}
+                                    type="button"
+                                >
+                                    ${this.showSpyKey ? 'Hide' : 'Show'}
+                                </button>
+                            </div>
+                        </div>
+                    ` : html`
+                        <div class="input-box" style="visibility: hidden;"></div>
+                    `}
+                </div>
+
                 <div class="form-grid">
                     <div class="input-box">
                         <label for="apiKeyInput">Torn API Key:</label>
@@ -573,6 +623,8 @@ export class ApiForm extends LitElement {
             detail: {
                 apiKey: this.apiKey.trim(),
                 factionId: this.factionId.trim(),
+                spyProvider: this.spyProvider,
+                spyKey: this.spyKey.trim(),
             },
             bubbles: true,
             composed: true,

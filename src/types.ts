@@ -16,6 +16,7 @@ export interface MemberElimination {
     teamId: number | null;
     teamName: string;
     bsEstimate: number | null;
+    bsEstimateSource?: string; // 'TornCortex' | 'TornStats' | 'BSP'
     attacks?: number;
 }
 

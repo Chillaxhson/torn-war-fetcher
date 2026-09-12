@@ -14,6 +14,9 @@ export class TornApp extends LitElement {
 
     @property({ type: String })
     factionId = '';
+    
+    @state()
+    private factionIdHistory: string[] = [];
 
     @state()
     private activeTab: 'war' | 'elimination' = 'war';
@@ -232,9 +235,11 @@ export class TornApp extends LitElement {
         }
 
         this.apiKey = localStorage.getItem('tornApiKey') || '';
-        const storedFactionIDs = JSON.parse(localStorage.getItem('tornFactionIDs') || '[]');
-        if (storedFactionIDs.length > 0) {
-            this.factionId = storedFactionIDs[0];
+        this.spyProvider = localStorage.getItem('tornSpyProvider') || '';
+        this.spyKey = localStorage.getItem('tornSpyKey') || '';
+        this.factionIdHistory = JSON.parse(localStorage.getItem('tornFactionIDs') || '[]');
+        if (this.factionIdHistory.length > 0) {
+            this.factionId = this.factionIdHistory[0];
         }
 
         const storedTab = localStorage.getItem('tornActiveTab');
@@ -287,10 +292,13 @@ export class TornApp extends LitElement {
             <api-form
                 .apiKey=${this.apiKey}
                 .factionId=${this.factionId}
+                .factionIdHistory=${this.factionIdHistory}
                 .userProfile=${this.userProfile}
                 .customBattleStats=${this.customBattleStats}
                 .isLoading=${this.isLoading}
                 .soundEnabled=${this.soundEnabled}
+                .spyProvider=${this.spyProvider}
+                .spyKey=${this.spyKey}
                 @update-credentials=${this.handleCredentialsUpdate}
                 @update-user-stats=${this.handleUpdateUserStats}
                 @toggle-sound=${this.handleToggleSound}
@@ -482,9 +490,14 @@ export class TornApp extends LitElement {
         this.saveTargetData();
     }
 
+    private spyProvider: string = '';
+    private spyKey: string = '';
+
     private handleCredentialsUpdate(event: CustomEvent) {
         this.apiKey = event.detail.apiKey;
         this.factionId = event.detail.factionId;
+        this.spyProvider = event.detail.spyProvider || '';
+        this.spyKey = event.detail.spyKey || '';
         this.saveCredentials();
         this.fetchUserProfile();
         this.startPolling();
@@ -492,6 +505,9 @@ export class TornApp extends LitElement {
 
     private saveCredentials() {
         localStorage.setItem('tornApiKey', this.apiKey);
+        localStorage.setItem('tornSpyProvider', this.spyProvider);
+        localStorage.setItem('tornSpyKey', this.spyKey);
+        
         if (this.factionId) {
             let existingIDs = JSON.parse(localStorage.getItem('tornFactionIDs') || '[]');
             existingIDs = [this.factionId, ...existingIDs.filter((id: string) => id !== this.factionId)];
@@ -560,12 +576,23 @@ export class TornApp extends LitElement {
 
         try {
             // If in elimination tab, use enriched endpoint
-            const endpoint = this.activeTab === 'elimination' 
+            // Actually, we should probably always enrich if spyProvider is set, but let's just always use the enriched endpoint if we want spy data for War Targets too!
+            const baseEndpoint = (this.activeTab === 'elimination' || this.spyProvider) 
                 ? `/api/elimination/faction/${this.factionId}`
                 : `/api/faction/${this.factionId}`;
 
+            let endpoint = baseEndpoint;
+            if (this.spyProvider) {
+                endpoint += `?provider=${this.spyProvider}`;
+            }
+
+            const headers: Record<string, string> = { 'X-API-Key': this.apiKey };
+            if (this.spyProvider === 'tornstats' && this.spyKey) {
+                headers['X-TornStats-Key'] = this.spyKey;
+            }
+
             const response = await fetch(endpoint, {
-                headers: { 'X-API-Key': this.apiKey }
+                headers
             });
             const data = await response.json();
 
