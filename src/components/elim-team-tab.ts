@@ -1996,21 +1996,73 @@ export class ElimTeamTab extends LitElement {
     
     while (p <= totalPages && p <= 25) {
         console.log(\`Đang tải trang \${p}...\`);
-        const res = await fetch(\`/page.php?sid=competitionData&step=viewTeam&teamID=\${teamID}&showAvailable=0&p=\${p}&rfcv=\${rfcv}\`, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json, text/javascript, */*' }
-        });
-        const data = await res.json();
-        const list = Array.isArray(data) ? data : (data.members || data.list || []);
-        if (list.length === 0) break;
-        allMembers.push(...list);
-        if (data.totalPages && data.totalPages > totalPages) totalPages = data.totalPages;
-        p++;
-        await new Promise(r => setTimeout(r, 200));
+        try {
+            const res = await fetch(\`/page.php?sid=competitionData&step=viewTeam&teamID=\${teamID}&showAvailable=0&p=\${p}&rfcv=\${rfcv}\`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json, text/javascript, */*' }
+            });
+            const data = await res.json();
+            const list = Array.isArray(data) ? data : (data.members || data.list || []);
+            if (list.length === 0) break;
+            allMembers.push(...list);
+            if (data.totalPages && data.totalPages > totalPages) totalPages = data.totalPages;
+            p++;
+            await new Promise(r => setTimeout(r, 200));
+        } catch (err) {
+            console.error('Lỗi khi tải trang ' + p + ':', err);
+            break;
+        }
     }
     
-    console.log('%c✓ Đã tải xong ' + allMembers.length + ' thành viên! Đang copy vào clipboard...', 'color: #10b981; font-weight: bold;');
-    await navigator.clipboard.writeText(JSON.stringify(allMembers));
-    alert('Đã copy ' + allMembers.length + ' thành viên vào Clipboard! Quay lại app và dán vào Paste JSON Payload.');
+    console.log('%c✓ Đã tải xong ' + allMembers.length + ' thành viên!', 'color: #10b981; font-weight: bold;');
+    
+    // Lưu vào biến toàn cục để truy xuất
+    window.tornElimMembers = allMembers;
+    const jsonStr = JSON.stringify(allMembers);
+    
+    // Dùng lệnh copy() có sẵn trong DevTools console (không bị lỗi Document is not focused)
+    let copied = false;
+    if (typeof copy === 'function') {
+        try {
+            copy(jsonStr);
+            copied = true;
+        } catch (e) {}
+    }
+    
+    // Fallback nếu không có hàm copy() của DevTools
+    if (!copied) {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = jsonStr;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            copied = document.execCommand('copy');
+            document.body.removeChild(ta);
+        } catch (e) {}
+    }
+    
+    // Thử đồng bộ trực tiếp vào ứng dụng nếu đang mở ở localhost
+    let synced = false;
+    try {
+        const syncRes = await fetch('http://localhost:3000/api/elimination/team-roster', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rawJson: allMembers })
+        });
+        if (syncRes.ok) synced = true;
+    } catch (e) {}
+    
+    if (synced) {
+        console.log('%c✓ Đã tự động đồng bộ thành công vào ứng dụng (localhost:3000)!', 'color: #3b82f6; font-size: 13px; font-weight: bold;');
+        alert('Đã tải và tự động đồng bộ ' + allMembers.length + ' thành viên vào ứng dụng!');
+    } else if (copied) {
+        console.log('%c✓ Đã copy thành công dữ liệu vào Clipboard!', 'color: #10b981; font-size: 13px; font-weight: bold;');
+        alert('Đã tải xong ' + allMembers.length + ' thành viên và COPY vào Clipboard! Hãy quay lại app và bấm "Paste JSON Payload".');
+    } else {
+        console.log('%cDữ liệu đã được lưu vào window.tornElimMembers. Bạn có thể gõ copy(JSON.stringify(window.tornElimMembers)) để copy.', 'color: #f59e0b; font-size: 13px;');
+        alert('Đã tải xong ' + allMembers.length + ' thành viên! Hãy gõ: copy(JSON.stringify(window.tornElimMembers)) vào Console để copy.');
+    }
 })();`;
     }
 
