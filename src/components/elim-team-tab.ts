@@ -10,24 +10,24 @@ interface MessageTemplate {
 
 const DEFAULT_TEMPLATES: MessageTemplate[] = [
     {
-        id: 'vi_polite',
-        label: 'Tiếng Việt - Lịch sự / Khéo léo',
-        text: 'Chào {name}, hiện tại team mình đang đua top Elimination rất gắt và bạn mới có {attacks} attacks. Nếu đợt này bạn bận không thể hit đều được, bạn có thể cân nhắc out team để nhường slot cho hitter active khác vào gánh team được không? Cảm ơn bạn nhiều!'
-    },
-    {
-        id: 'vi_direct',
-        label: 'Tiếng Việt - Thẳng thắn / Cần lọc gấp',
-        text: 'Chào {name}, với {attacks} attacks thì bạn đang ở nhóm đóng góp thấp nhất team. Bọn mình đang lọc bớt các thành viên inactive/ít attack để dồn slot cho người mới. Mong bạn chủ động rời team trong hôm nay giúp team nhé. Cảm ơn bạn.'
-    },
-    {
         id: 'en_polite',
-        label: 'English - Diplomatic / Polite',
-        text: 'Hi {name}, our team is pushing hard for a top spot in Elimination and we noticed you currently have {attacks} attacks. If you are unable to hit actively this round, could you please consider leaving the team so an active hitter can take the spot? We would really appreciate it!'
+        label: 'Diplomatic / Polite',
+        text: 'Hi {name}, our team is pushing hard for a top spot in Elimination and we noticed you currently have {attacks} attacks. If you are unable to hit actively this round, could you please consider leaving the team so an active hitter can take the spot? We would really appreciate your help!'
     },
     {
         id: 'en_direct',
-        label: 'English - Direct / Urgent',
-        text: 'Hey {name}, you have {attacks} attacks so far. We are clearing low-activity roster spots to keep our team alive. Please step down and leave the team today so an active attacker can join. Thank you.'
+        label: 'Direct / Urgent',
+        text: 'Hey {name}, you currently have {attacks} attacks so far. We are clearing inactive roster slots to stay competitive. Please step down and leave the team today so an active attacker can join. Thank you.'
+    },
+    {
+        id: 'en_reminder',
+        label: 'Friendly Reminder',
+        text: 'Hi {name}, just checking in! You have {attacks} attacks so far. If you are busy with real life and cannot contribute hits regularly, please consider stepping down to free up space for an active hitter. Thanks!'
+    },
+    {
+        id: 'en_replacement',
+        label: 'Strict / Spot Clearing',
+        text: 'Hey {name}, with {attacks} attacks you are in the bottom tier of our roster. We need active slots right now. Please leave the team as soon as possible so we can bring in active hitters. Thank you.'
     }
 ];
 
@@ -43,35 +43,11 @@ export class ElimTeamTab extends LitElement {
     private teamID = 89;
 
     @state()
-    private page = 1;
-
-    @state()
-    private totalPages = 1;
-
-    @state()
-    private totalCount = 0;
-
-    @state()
     private teamName = '';
 
-    @state()
-    private rfcv = '6aa4459d6796e';
-
-    @state()
-    private tornCookie = '';
-
-    @state()
-    private showCookieInput = false;
-
-    @state()
-    private inputUrl = 'https://www.torn.com/page.php?sid=competitionData&step=viewTeam&teamID=89&showAvailable=0&p=3&rfcv=6aa4459d6796e';
-
-    // State for loading
+    // State for loading & notifications
     @state()
     private isLoading = false;
-
-    @state()
-    private loadingProgress = '';
 
     @state()
     private errorMessage = '';
@@ -101,9 +77,16 @@ export class ElimTeamTab extends LitElement {
     @state()
     private hideCaptains = false;
 
+    // Pagination
+    @state()
+    private currentPage = 1;
+
+    @state()
+    private pageSize = 50; // 25, 50, 100, 200, -1 (all)
+
     // Persuasion messaging
     @state()
-    private selectedTemplateId = 'vi_polite';
+    private selectedTemplateId = 'en_polite';
 
     @state()
     private customTemplateText = '';
@@ -129,15 +112,22 @@ export class ElimTeamTab extends LitElement {
         :host {
             display: block;
             width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
         }
 
         .panel-container {
             display: flex;
             flex-direction: column;
             gap: 1.25rem;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
         }
 
-        /* Top Config / Fetcher Box */
+        /* Top Control Bar */
         .config-box {
             background: #121620;
             border: 1px solid #242c3f;
@@ -147,6 +137,8 @@ export class ElimTeamTab extends LitElement {
             flex-direction: column;
             gap: 1rem;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .config-header {
@@ -178,63 +170,11 @@ export class ElimTeamTab extends LitElement {
             letter-spacing: 0.05em;
         }
 
-        .url-input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.35rem;
-        }
-
-        .url-input-group label {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #94a3b8;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .url-input-row {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .text-input {
-            background: #0a0d14;
-            border: 1px solid #2d374d;
-            border-radius: 6px;
-            color: #f1f5f9;
-            padding: 0.55rem 0.85rem;
-            font-family: inherit;
-            font-size: 0.88rem;
-            width: 100%;
-            transition: border-color 0.15s;
-        }
-
-        .text-input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-            gap: 0.75rem;
-        }
-
-        .field-label {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #94a3b8;
-            margin-bottom: 0.25rem;
-            display: block;
-        }
-
         .btn-group {
             display: flex;
             align-items: center;
             flex-wrap: wrap;
             gap: 0.5rem;
-            margin-top: 0.25rem;
         }
 
         .btn {
@@ -276,6 +216,17 @@ export class ElimTeamTab extends LitElement {
             box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
         }
 
+        .btn-success {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.4);
+            color: #34d399;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #10b981;
+            color: #fff;
+        }
+
         .btn-danger {
             background: rgba(239, 68, 68, 0.15);
             border-color: rgba(239, 68, 68, 0.4);
@@ -287,15 +238,42 @@ export class ElimTeamTab extends LitElement {
             color: #fff;
         }
 
-        .btn-success {
-            background: rgba(16, 185, 129, 0.15);
-            border-color: rgba(16, 185, 129, 0.4);
-            color: #34d399;
+        /* Step instructions */
+        .data-instruction-bar {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            background: #0a0e17;
+            border: 1px solid #1e2638;
+            border-radius: 8px;
+            padding: 0.65rem 1rem;
+            font-size: 0.82rem;
+            color: #94a3b8;
         }
 
-        .btn-success:hover:not(:disabled) {
-            background: #10b981;
+        .instruction-step {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .step-num {
+            background: #2563eb;
             color: #fff;
+            font-weight: 700;
+            font-size: 0.7rem;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .instruction-arrow {
+            color: #475569;
+            font-weight: bold;
         }
 
         /* Banner & Alerts */
@@ -328,6 +306,8 @@ export class ElimTeamTab extends LitElement {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             gap: 0.75rem;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .metric-card {
@@ -338,6 +318,7 @@ export class ElimTeamTab extends LitElement {
             display: flex;
             flex-direction: column;
             gap: 4px;
+            min-width: 0;
         }
 
         .metric-card.danger {
@@ -368,6 +349,9 @@ export class ElimTeamTab extends LitElement {
             display: flex;
             align-items: baseline;
             gap: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .metric-sub {
@@ -409,6 +393,8 @@ export class ElimTeamTab extends LitElement {
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .template-header {
@@ -426,6 +412,24 @@ export class ElimTeamTab extends LitElement {
             display: flex;
             align-items: center;
             gap: 6px;
+        }
+
+        .text-input {
+            background: #0a0d14;
+            border: 1px solid #2d374d;
+            border-radius: 6px;
+            color: #f1f5f9;
+            padding: 0.55rem 0.85rem;
+            font-family: inherit;
+            font-size: 0.88rem;
+            transition: border-color 0.15s;
+            box-sizing: border-box;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
         }
 
         .template-preview {
@@ -462,6 +466,8 @@ export class ElimTeamTab extends LitElement {
             display: flex;
             flex-direction: column;
             gap: 1rem;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .filter-pills {
@@ -564,6 +570,8 @@ export class ElimTeamTab extends LitElement {
             border: 1px solid #2b3954;
             border-radius: 8px;
             padding: 0.6rem 1rem;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .bulk-text {
@@ -578,7 +586,12 @@ export class ElimTeamTab extends LitElement {
             border: 1px solid #242c3f;
             border-radius: 10px;
             overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
         }
 
         table.roster-table {
@@ -586,6 +599,7 @@ export class ElimTeamTab extends LitElement {
             border-collapse: collapse;
             font-size: 0.85rem;
             text-align: left;
+            min-width: 980px;
         }
 
         table.roster-table th {
@@ -601,7 +615,7 @@ export class ElimTeamTab extends LitElement {
         }
 
         table.roster-table td {
-            padding: 0.75rem 0.85rem;
+            padding: 0.7rem 0.85rem;
             border-bottom: 1px solid #1a2233;
             color: #cbd5e1;
             vertical-align: middle;
@@ -622,7 +636,8 @@ export class ElimTeamTab extends LitElement {
         .player-cell {
             display: flex;
             align-items: center;
-            gap: 0.65rem;
+            gap: 0.55rem;
+            max-width: 220px;
         }
 
         .player-link {
@@ -630,6 +645,9 @@ export class ElimTeamTab extends LitElement {
             color: #f1f5f9;
             text-decoration: none;
             transition: color 0.15s;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .player-link:hover {
@@ -641,6 +659,7 @@ export class ElimTeamTab extends LitElement {
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.75rem;
             color: #64748b;
+            white-space: nowrap;
         }
 
         .badge-role {
@@ -650,6 +669,7 @@ export class ElimTeamTab extends LitElement {
             border-radius: 4px;
             text-transform: uppercase;
             letter-spacing: 0.03em;
+            white-space: nowrap;
         }
 
         .badge-captain {
@@ -662,11 +682,19 @@ export class ElimTeamTab extends LitElement {
             color: #fff;
         }
 
+        .faction-cell {
+            max-width: 170px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .online-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
             display: inline-block;
+            flex-shrink: 0;
         }
 
         .online-dot.online {
@@ -691,7 +719,9 @@ export class ElimTeamTab extends LitElement {
             border-radius: 6px;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 4px;
+            white-space: nowrap;
         }
 
         .attack-badge.zero {
@@ -739,6 +769,7 @@ export class ElimTeamTab extends LitElement {
             display: inline-flex;
             align-items: center;
             gap: 4px;
+            white-space: nowrap;
         }
 
         .status-badge.red {
@@ -768,6 +799,7 @@ export class ElimTeamTab extends LitElement {
             border-radius: 4px;
             font-size: 0.78rem;
             cursor: pointer;
+            width: 130px;
         }
 
         .contact-select.uncontacted {
@@ -798,6 +830,7 @@ export class ElimTeamTab extends LitElement {
         .action-cell {
             display: flex;
             align-items: center;
+            justify-content: flex-end;
             gap: 4px;
             white-space: nowrap;
         }
@@ -834,6 +867,61 @@ export class ElimTeamTab extends LitElement {
             color: #fbbf24;
         }
 
+        /* Pagination Bar */
+        .pagination-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: #121620;
+            border: 1px solid #242c3f;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .btn-page {
+            background: #191f2d;
+            border: 1px solid #2d374d;
+            color: #cbd5e1;
+            padding: 0.35rem 0.65rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .btn-page:hover:not(:disabled) {
+            background: #252f44;
+            color: #fff;
+            border-color: #3b82f6;
+        }
+
+        .btn-page:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-page.active {
+            background: #2563eb;
+            color: #fff;
+            border-color: #3b82f6;
+        }
+
         /* Modal Backdrop & Box */
         .modal-overlay {
             position: fixed;
@@ -848,6 +936,7 @@ export class ElimTeamTab extends LitElement {
             justify-content: center;
             z-index: 9999;
             padding: 1rem;
+            box-sizing: border-box;
         }
 
         .modal-box {
@@ -861,6 +950,7 @@ export class ElimTeamTab extends LitElement {
             flex-direction: column;
             gap: 1rem;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            box-sizing: border-box;
         }
 
         .modal-title {
@@ -893,18 +983,23 @@ export class ElimTeamTab extends LitElement {
             font-size: 0.78rem;
             color: #cbd5e1;
             overflow-x: auto;
-            max-height: 240px;
+            max-height: 250px;
             line-height: 1.5;
         }
 
         .empty-state {
-            padding: 3rem 1rem;
+            padding: 3.5rem 1rem;
             text-align: center;
             color: #64748b;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 0.75rem;
+            background: #121620;
+            border: 1px dashed #242c3f;
+            border-radius: 10px;
+            width: 100%;
+            box-sizing: border-box;
         }
     `;
 
@@ -918,14 +1013,11 @@ export class ElimTeamTab extends LitElement {
             } catch {}
         }
 
-        const savedRfcv = localStorage.getItem('tornElimRfcv');
-        if (savedRfcv) this.rfcv = savedRfcv;
-
-        const savedCookie = localStorage.getItem('tornSessionCookie');
-        if (savedCookie) this.tornCookie = savedCookie;
-
         const savedTeamId = localStorage.getItem('tornElimTeamID');
         if (savedTeamId) this.teamID = Number(savedTeamId);
+
+        const savedTeamName = localStorage.getItem('tornElimTeamName');
+        if (savedTeamName) this.teamName = savedTeamName;
 
         const savedThreshold = localStorage.getItem('tornElimLowThreshold');
         if (savedThreshold) this.lowContributionThreshold = Number(savedThreshold);
@@ -937,6 +1029,14 @@ export class ElimTeamTab extends LitElement {
     render() {
         const filteredMembers = this.getFilteredMembers();
         const stats = this.calculateAnalytics();
+
+        // Calculate pagination
+        const totalItems = filteredMembers.length;
+        const totalPages = this.pageSize === -1 ? 1 : Math.max(1, Math.ceil(totalItems / this.pageSize));
+        const safeCurrentPage = Math.min(this.currentPage, totalPages);
+        const startIndex = this.pageSize === -1 ? 0 : (safeCurrentPage - 1) * this.pageSize;
+        const endIndex = this.pageSize === -1 ? totalItems : Math.min(startIndex + this.pageSize, totalItems);
+        const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
 
         return html`
             <div class="panel-container">
@@ -955,7 +1055,7 @@ export class ElimTeamTab extends LitElement {
                     </div>
                 ` : ''}
 
-                <!-- Configuration & Fetching Section -->
+                <!-- Control & Actions Bar (Solely Console & Payload) -->
                 <div class="config-box">
                     <div class="config-header">
                         <div class="config-title">
@@ -966,11 +1066,11 @@ export class ElimTeamTab extends LitElement {
                                 <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                             </svg>
                             <span>Elimination Team Roster & Low Contribution Persuader</span>
-                            <span class="config-badge">Elim 2024 / Target Fetcher</span>
+                            <span class="config-badge">Elimination 2026</span>
                         </div>
 
                         <div class="btn-group">
-                            <button class="btn" @click=${() => this.showPasteModal = true}>
+                            <button class="btn btn-primary" @click=${() => this.showPasteModal = true}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
                                     <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
@@ -978,12 +1078,12 @@ export class ElimTeamTab extends LitElement {
                                 <span>Paste JSON Payload</span>
                             </button>
 
-                            <button class="btn" @click=${() => this.showConsoleScriptModal = true}>
+                            <button class="btn btn-success" @click=${() => this.showConsoleScriptModal = true}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <polyline points="4 17 10 11 4 5"></polyline>
                                     <line x1="12" y1="19" x2="20" y2="19"></line>
                                 </svg>
-                                <span>Torn Console Helper</span>
+                                <span>Torn Console Helper Script</span>
                             </button>
 
                             ${this.members.length > 0 ? html`
@@ -998,115 +1098,30 @@ export class ElimTeamTab extends LitElement {
                         </div>
                     </div>
 
-                    <!-- Quick URL Input -->
-                    <div class="url-input-group">
-                        <label>
-                            <span>Dán trực tiếp URL Torn Elimination Endpoint (tự động phân tích các tham số):</span>
-                            <a href="javascript:void(0)" style="color:#60a5fa; text-decoration:none;" @click=${() => this.showCookieInput = !this.showCookieInput}>
-                                ${this.showCookieInput ? '▲ Ẩn Torn Session Cookie' : '▼ Nhập Torn Session Cookie (nếu có)'}
-                            </a>
-                        </label>
-                        <div class="url-input-row">
-                            <input 
-                                type="text" 
-                                class="text-input" 
-                                placeholder="https://www.torn.com/page.php?sid=competitionData&step=viewTeam&teamID=89&showAvailable=0&p=3&rfcv=6aa4459d6796e"
-                                .value=${this.inputUrl}
-                                @input=${this.handleUrlInput}
-                            />
-                            <button class="btn btn-primary" ?disabled=${this.isLoading} @click=${() => this.fetchRoster(false)}>
-                                ${this.isLoading ? html`<span>Tải...</span>` : html`
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polyline points="1 4 1 10 7 10"></polyline>
-                                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                                    </svg>
-                                    <span>Fetch Page</span>
-                                `}
-                            </button>
-                            <button class="btn btn-success" ?disabled=${this.isLoading} @click=${() => this.fetchRoster(true)}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                                </svg>
-                                <span>Fetch All (1..N)</span>
-                            </button>
+                    <!-- 3-step Instruction Banner -->
+                    <div class="data-instruction-bar">
+                        <div class="instruction-step">
+                            <span class="step-num">1</span>
+                            <span>Open your Elimination team page on <strong>torn.com</strong> in your browser.</span>
+                        </div>
+                        <span class="instruction-arrow">&rarr;</span>
+                        <div class="instruction-step">
+                            <span class="step-num">2</span>
+                            <span>Click <strong>Torn Console Helper Script</strong> above, copy and paste it into F12 DevTools Console on Torn.</span>
+                        </div>
+                        <span class="instruction-arrow">&rarr;</span>
+                        <div class="instruction-step">
+                            <span class="step-num">3</span>
+                            <span>Click <strong>Paste JSON Payload</strong> and paste the copied data to load the roster!</span>
                         </div>
                     </div>
-
-                    <!-- Optional Cookie Input -->
-                    ${this.showCookieInput ? html`
-                        <div class="url-input-group">
-                            <label>Torn Session Cookie (PHPSESSID - chỉ cần nhập nếu Torn Cloudflare chặn request từ IP server):</label>
-                            <input 
-                                type="password" 
-                                class="text-input" 
-                                placeholder="PHPSESSID=xxxxxx; cf_clearance=yyyyyy"
-                                .value=${this.tornCookie}
-                                @input=${(e: any) => {
-                                    this.tornCookie = e.target.value;
-                                    localStorage.setItem('tornSessionCookie', this.tornCookie);
-                                }}
-                            />
-                        </div>
-                    ` : ''}
-
-                    <!-- Parameters Grid -->
-                    <div class="form-grid">
-                        <div>
-                            <span class="field-label">Team ID</span>
-                            <input 
-                                type="number" 
-                                class="text-input" 
-                                .value=${String(this.teamID)}
-                                @input=${(e: any) => {
-                                    this.teamID = Number(e.target.value);
-                                    localStorage.setItem('tornElimTeamID', String(this.teamID));
-                                    this.updateInputUrl();
-                                }}
-                            />
-                        </div>
-
-                        <div>
-                            <span class="field-label">Page (p)</span>
-                            <input 
-                                type="number" 
-                                class="text-input" 
-                                min="1"
-                                .value=${String(this.page)}
-                                @input=${(e: any) => {
-                                    this.page = Number(e.target.value);
-                                    this.updateInputUrl();
-                                }}
-                            />
-                        </div>
-
-                        <div style="grid-column: span 2;">
-                            <span class="field-label">RFCV Token</span>
-                            <input 
-                                type="text" 
-                                class="text-input" 
-                                .value=${this.rfcv}
-                                @input=${(e: any) => {
-                                    this.rfcv = e.target.value;
-                                    localStorage.setItem('tornElimRfcv', this.rfcv);
-                                    this.updateInputUrl();
-                                }}
-                            />
-                        </div>
-                    </div>
-
-                    ${this.loadingProgress ? html`
-                        <div style="font-size: 0.85rem; color: #3b82f6; display: flex; align-items: center; gap: 8px;">
-                            <span class="online-dot online"></span>
-                            <span>${this.loadingProgress}</span>
-                        </div>
-                    ` : ''}
                 </div>
 
                 <!-- Executive Summary Cards -->
                 ${this.members.length > 0 ? html`
                     <div class="analytics-grid">
                         <div class="metric-card primary">
-                            <span class="metric-label">Tổng Roster</span>
+                            <span class="metric-label">Total Roster</span>
                             <div class="metric-val">
                                 ${stats.totalMembers}
                                 <span class="metric-sub">${this.teamName ? `(${this.teamName})` : ''}</span>
@@ -1114,7 +1129,7 @@ export class ElimTeamTab extends LitElement {
                         </div>
 
                         <div class="metric-card">
-                            <span class="metric-label">Tổng Attacks Toàn Team</span>
+                            <span class="metric-label">Total Team Attacks</span>
                             <div class="metric-val">
                                 ${stats.totalAttacks.toLocaleString()}
                                 <span class="metric-sub">avg ${stats.avgAttacks}</span>
@@ -1122,7 +1137,7 @@ export class ElimTeamTab extends LitElement {
                         </div>
 
                         <div class="metric-card danger">
-                            <span class="metric-label">0 Attacks (Dead weight)</span>
+                            <span class="metric-label">0 Attacks (Dead Weight)</span>
                             <div class="metric-val">
                                 ${stats.zeroAttackCount}
                                 <span class="metric-sub">(${stats.zeroAttackPct}%)</span>
@@ -1130,7 +1145,7 @@ export class ElimTeamTab extends LitElement {
                         </div>
 
                         <div class="metric-card warning">
-                            <span class="metric-label">Đóng góp thấp (&le; ${this.lowContributionThreshold} hits)</span>
+                            <span class="metric-label">Low Contribution (&le; ${this.lowContributionThreshold} hits)</span>
                             <div class="metric-val">
                                 ${stats.lowAttackCount}
                                 <span class="metric-sub">(${stats.lowAttackPct}%)</span>
@@ -1138,30 +1153,30 @@ export class ElimTeamTab extends LitElement {
                         </div>
 
                         <div class="metric-card success">
-                            <span class="metric-label">Tiến Độ Thuyết Phục</span>
+                            <span class="metric-label">Persuasion Progress</span>
                             <div class="metric-val">
                                 ${stats.contactedCount}
-                                <span class="metric-sub">/ ${stats.lowAttackCount} đã nhắn</span>
+                                <span class="metric-sub">/ ${stats.lowAttackCount} contacted</span>
                             </div>
                         </div>
 
                         <div class="metric-card">
-                            <span class="metric-label">Đã Out Team</span>
+                            <span class="metric-label">Left Team</span>
                             <div class="metric-val" style="color: #34d399;">
                                 ${stats.leftCount}
-                                <span class="metric-sub">thành viên</span>
+                                <span class="metric-sub">members</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Persuasion Template Toolkit -->
+                    <!-- Persuasion Outreach Toolkit -->
                     <div class="template-section">
                         <div class="template-header">
                             <div class="template-title">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
                                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                                 </svg>
-                                <span>Bộ Mẫu Tin Nhắn Thuyết Phục Rời Team (Outreach Templates)</span>
+                                <span>Persuasion Outreach Templates</span>
                             </div>
 
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -1174,12 +1189,12 @@ export class ElimTeamTab extends LitElement {
                                     ${DEFAULT_TEMPLATES.map(t => html`
                                         <option value=${t.id} ?selected=${this.selectedTemplateId === t.id}>${t.label}</option>
                                     `)}
-                                    <option value="custom" ?selected=${this.selectedTemplateId === 'custom'}>Mẫu Tùy Chỉnh (Custom)</option>
+                                    <option value="custom" ?selected=${this.selectedTemplateId === 'custom'}>Custom Template</option>
                                 </select>
 
                                 ${this.selectedTemplateId === 'custom' ? html`
                                     <button class="btn" style="padding: 0.35rem 0.65rem;" @click=${() => this.isEditingTemplate = !this.isEditingTemplate}>
-                                        ${this.isEditingTemplate ? 'Đóng Edit' : 'Chỉnh Sửa'}
+                                        ${this.isEditingTemplate ? 'Done Editing' : 'Edit Template'}
                                     </button>
                                 ` : ''}
                             </div>
@@ -1189,7 +1204,7 @@ export class ElimTeamTab extends LitElement {
                             <textarea
                                 class="text-input"
                                 rows="3"
-                                placeholder="Nhập mẫu tin nhắn của bạn với các biến {name}, {attacks}, {level}..."
+                                placeholder="Enter your custom message template with tokens {name}, {attacks}, {level}, {id}..."
                                 .value=${this.customTemplateText}
                                 @input=${(e: any) => {
                                     this.customTemplateText = e.target.value;
@@ -1203,10 +1218,11 @@ export class ElimTeamTab extends LitElement {
                         `}
 
                         <div class="template-tokens">
-                            <span>Biến tự động thay thế khi copy: </span>
-                            <span class="token-tag">{name}</span> (Tên player), 
-                            <span class="token-tag">{attacks}</span> (Số hit), 
-                            <span class="token-tag">{level}</span> (Level)
+                            <span>Dynamic tokens: </span>
+                            <span class="token-tag">{name}</span> (Player name), 
+                            <span class="token-tag">{attacks}</span> (Attack count), 
+                            <span class="token-tag">{level}</span> (Level),
+                            <span class="token-tag">{id}</span> (User ID)
                         </div>
                     </div>
 
@@ -1216,15 +1232,15 @@ export class ElimTeamTab extends LitElement {
                             <div class="filter-pills">
                                 <button 
                                     class="filter-pill ${this.filterQuick === 'all' ? 'active' : ''}" 
-                                    @click=${() => this.filterQuick = 'all'}
+                                    @click=${() => { this.filterQuick = 'all'; this.currentPage = 1; }}
                                 >
-                                    <span>Tất Cả</span>
+                                    <span>All</span>
                                     <span class="pill-count">${stats.totalMembers}</span>
                                 </button>
 
                                 <button 
                                     class="filter-pill danger ${this.filterQuick === 'zero' ? 'active danger' : ''}" 
-                                    @click=${() => this.filterQuick = 'zero'}
+                                    @click=${() => { this.filterQuick = 'zero'; this.currentPage = 1; }}
                                 >
                                     <span>💀 0 Attacks</span>
                                     <span class="pill-count">${stats.zeroAttackCount}</span>
@@ -1232,7 +1248,7 @@ export class ElimTeamTab extends LitElement {
 
                                 <button 
                                     class="filter-pill warning ${this.filterQuick === 'low' ? 'active warning' : ''}" 
-                                    @click=${() => this.filterQuick = 'low'}
+                                    @click=${() => { this.filterQuick = 'low'; this.currentPage = 1; }}
                                 >
                                     <span>⚠️ &le; ${this.lowContributionThreshold} Attacks</span>
                                     <span class="pill-count">${stats.lowAttackCount}</span>
@@ -1240,32 +1256,32 @@ export class ElimTeamTab extends LitElement {
 
                                 <button 
                                     class="filter-pill ${this.filterQuick === 'uncontacted_low' ? 'active' : ''}" 
-                                    @click=${() => this.filterQuick = 'uncontacted_low'}
+                                    @click=${() => { this.filterQuick = 'uncontacted_low'; this.currentPage = 1; }}
                                 >
-                                    <span>⏳ Cần Nhắn (Chưa liên hệ)</span>
+                                    <span>⏳ Needs Contact (Uncontacted Low)</span>
                                     <span class="pill-count">${stats.uncontactedLowCount}</span>
                                 </button>
 
                                 <button 
                                     class="filter-pill ${this.filterQuick === 'contacted' ? 'active' : ''}" 
-                                    @click=${() => this.filterQuick = 'contacted'}
+                                    @click=${() => { this.filterQuick = 'contacted'; this.currentPage = 1; }}
                                 >
-                                    <span>✉️ Đã Nhắn</span>
+                                    <span>✉️ Contacted</span>
                                     <span class="pill-count">${stats.contactedCount}</span>
                                 </button>
 
                                 <button 
                                     class="filter-pill ${this.filterQuick === 'left' ? 'active' : ''}" 
-                                    @click=${() => this.filterQuick = 'left'}
+                                    @click=${() => { this.filterQuick = 'left'; this.currentPage = 1; }}
                                 >
-                                    <span>🚪 Đã Rời Team</span>
+                                    <span>🚪 Left Team</span>
                                     <span class="pill-count">${stats.leftCount}</span>
                                 </button>
                             </div>
 
                             <!-- Threshold Slider -->
                             <div class="slider-group">
-                                <label>Ngưỡng Low Contribution:</label>
+                                <label>Low Contribution Cutoff:</label>
                                 <input 
                                     type="range" 
                                     min="5" 
@@ -1275,6 +1291,7 @@ export class ElimTeamTab extends LitElement {
                                     @input=${(e: any) => {
                                         this.lowContributionThreshold = Number(e.target.value);
                                         localStorage.setItem('tornElimLowThreshold', String(this.lowContributionThreshold));
+                                        this.currentPage = 1;
                                     }}
                                 />
                                 <span class="slider-val">&le; ${this.lowContributionThreshold}</span>
@@ -1287,35 +1304,44 @@ export class ElimTeamTab extends LitElement {
                                 <input 
                                     type="text" 
                                     class="text-input" 
-                                    placeholder="🔍 Tìm theo tên player, ID hoặc faction tag..."
-                                    style="max-width: 320px;"
+                                    placeholder="🔍 Search player name, ID, or faction..."
+                                    style="max-width: 300px;"
                                     .value=${this.searchQuery}
-                                    @input=${(e: any) => this.searchQuery = e.target.value}
+                                    @input=${(e: any) => {
+                                        this.searchQuery = e.target.value;
+                                        this.currentPage = 1;
+                                    }}
                                 />
 
                                 <select 
                                     class="text-input" 
                                     style="width: auto;"
                                     .value=${this.filterOnline}
-                                    @change=${(e: any) => this.filterOnline = e.target.value}
+                                    @change=${(e: any) => {
+                                        this.filterOnline = e.target.value;
+                                        this.currentPage = 1;
+                                    }}
                                 >
-                                    <option value="all">Online: Tất cả</option>
-                                    <option value="online">Chỉ Online</option>
-                                    <option value="idle">Idle</option>
-                                    <option value="offline">Offline</option>
+                                    <option value="all">Activity: All</option>
+                                    <option value="online">Online only</option>
+                                    <option value="idle">Idle only</option>
+                                    <option value="offline">Offline only</option>
                                 </select>
 
                                 <select 
                                     class="text-input" 
                                     style="width: auto;"
                                     .value=${this.filterStatus}
-                                    @change=${(e: any) => this.filterStatus = e.target.value}
+                                    @change=${(e: any) => {
+                                        this.filterStatus = e.target.value;
+                                        this.currentPage = 1;
+                                    }}
                                 >
-                                    <option value="all">Trạng thái: Tất cả</option>
-                                    <option value="Hospital">Chỉ Hospital (Viện)</option>
-                                    <option value="Okay">Chỉ Okay (Tự do)</option>
-                                    <option value="Abroad">Chỉ Abroad (Nước ngoài)</option>
-                                    <option value="Jail">Chỉ Jail (Tù)</option>
+                                    <option value="all">Status: All</option>
+                                    <option value="Hospital">Hospital only</option>
+                                    <option value="Okay">Okay only</option>
+                                    <option value="Abroad">Abroad only</option>
+                                    <option value="Jail">Jail only</option>
                                 </select>
 
                                 <select 
@@ -1324,12 +1350,12 @@ export class ElimTeamTab extends LitElement {
                                     .value=${this.sortBy}
                                     @change=${(e: any) => this.sortBy = e.target.value}
                                 >
-                                    <option value="attacks_asc">Sắp xếp: Attack ít nhất lên đầu (Mặc định)</option>
-                                    <option value="attacks_desc">Sắp xếp: Attack nhiều nhất</option>
-                                    <option value="level_desc">Level cao nhất</option>
-                                    <option value="level_asc">Level thấp nhất</option>
-                                    <option value="name">Tên A-Z</option>
-                                    <option value="contact">Trạng thái liên hệ</option>
+                                    <option value="attacks_asc">Sort: Lowest Attacks First (Default)</option>
+                                    <option value="attacks_desc">Sort: Highest Attacks First</option>
+                                    <option value="level_desc">Highest Level First</option>
+                                    <option value="level_asc">Lowest Level First</option>
+                                    <option value="name">Name (A-Z)</option>
+                                    <option value="contact">Contact Status</option>
                                 </select>
                             </div>
 
@@ -1337,9 +1363,12 @@ export class ElimTeamTab extends LitElement {
                                 <input 
                                     type="checkbox" 
                                     .checked=${this.hideCaptains}
-                                    @change=${(e: any) => this.hideCaptains = e.target.checked}
+                                    @change=${(e: any) => {
+                                        this.hideCaptains = e.target.checked;
+                                        this.currentPage = 1;
+                                    }}
                                 />
-                                <span>Ẩn Captain & Vice-Captain</span>
+                                <span>Hide Captains & Vice-Captains</span>
                             </label>
                         </div>
                     </div>
@@ -1348,7 +1377,7 @@ export class ElimTeamTab extends LitElement {
                     ${this.selectedUserIDs.size > 0 ? html`
                         <div class="bulk-bar">
                             <span class="bulk-text">
-                                Đã chọn ${this.selectedUserIDs.size} thành viên
+                                ${this.selectedUserIDs.size} members selected
                             </span>
 
                             <div class="btn-group">
@@ -1357,62 +1386,63 @@ export class ElimTeamTab extends LitElement {
                                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                     </svg>
-                                    <span>Copy Hàng Loạt Tin Nhắn</span>
+                                    <span>Copy Messages for Selected</span>
                                 </button>
 
                                 <button class="btn" @click=${this.bulkExportDiscord}>
-                                    <span>📋 Copy List cho Discord / Captain</span>
+                                    <span>📋 Export Discord List</span>
                                 </button>
 
                                 <button class="btn btn-success" @click=${() => this.bulkSetContactStatus('contacted')}>
-                                    <span>Đánh dấu "Đã nhắn"</span>
+                                    <span>Mark as "Contacted"</span>
                                 </button>
 
                                 <button class="btn" @click=${() => this.selectedUserIDs = new Set()}>
-                                    <span>Bỏ chọn</span>
+                                    <span>Deselect All</span>
                                 </button>
                             </div>
                         </div>
                     ` : ''}
 
-                    <!-- Roster Table -->
+                    <!-- Roster Table with clean overflow handling -->
                     <div class="roster-table-wrapper">
                         <table class="roster-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 36px; text-align: center;">
+                                    <th style="width: 36px; min-width: 36px; text-align: center;">
                                         <input 
                                             type="checkbox" 
-                                            .checked=${filteredMembers.length > 0 && filteredMembers.every(m => this.selectedUserIDs.has(m.userID))}
+                                            .checked=${paginatedMembers.length > 0 && paginatedMembers.every(m => this.selectedUserIDs.has(m.userID))}
                                             @change=${(e: any) => {
+                                                const newSet = new Set(this.selectedUserIDs);
                                                 if (e.target.checked) {
-                                                    this.selectedUserIDs = new Set(filteredMembers.map(m => m.userID));
+                                                    paginatedMembers.forEach(m => newSet.add(m.userID));
                                                 } else {
-                                                    this.selectedUserIDs = new Set();
+                                                    paginatedMembers.forEach(m => newSet.delete(m.userID));
                                                 }
+                                                this.selectedUserIDs = newSet;
                                             }}
                                         />
                                     </th>
-                                    <th>Player / ID</th>
-                                    <th>Level</th>
-                                    <th>Faction</th>
-                                    <th>Status</th>
-                                    <th>Online</th>
-                                    <th>Attacks (Elim)</th>
-                                    <th>Trạng Thái Liên Hệ</th>
-                                    <th style="text-align: right;">Hành Động Thuyết Phục</th>
+                                    <th style="min-width: 170px;">Player / ID</th>
+                                    <th style="width: 55px; min-width: 55px; text-align: center;">Level</th>
+                                    <th style="min-width: 150px;">Faction</th>
+                                    <th style="min-width: 110px;">Status</th>
+                                    <th style="min-width: 85px;">Activity</th>
+                                    <th style="width: 100px; min-width: 100px; text-align: center;">Attacks</th>
+                                    <th style="min-width: 140px;">Contact Status</th>
+                                    <th style="min-width: 155px; text-align: right;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${filteredMembers.length === 0 ? html`
+                                ${paginatedMembers.length === 0 ? html`
                                     <tr>
-                                        <td colspan="9" style="text-align: center; padding: 2rem; color: #64748b;">
-                                            Không có thành viên nào khớp với bộ lọc hiện tại.
+                                        <td colspan="9" style="text-align: center; padding: 2.5rem; color: #64748b;">
+                                            No members match the current filter criteria.
                                         </td>
                                     </tr>
-                                ` : filteredMembers.map(m => {
+                                ` : paginatedMembers.map(m => {
                                     const isZero = m.attacks === 0;
-                                    const isLow = m.attacks <= this.lowContributionThreshold;
                                     const isSelected = this.selectedUserIDs.has(m.userID);
                                     const statusText = Array.isArray(m.status) ? m.status[1] : 'Okay';
                                     const statusColor = Array.isArray(m.status) ? m.status[0] : 'green';
@@ -1440,26 +1470,28 @@ export class ElimTeamTab extends LitElement {
                                                         href="https://www.torn.com/profiles.php?NID=${m.userID}" 
                                                         target="_blank" 
                                                         class="player-link"
+                                                        title="${m.playername} [${m.userID}]"
                                                     >
                                                         ${m.playername}
                                                     </a>
                                                     <span class="player-id">[${m.userID}]</span>
 
-                                                    ${isCaptain ? html`<span class="badge-role badge-captain">CAPTAIN</span>` : ''}
+                                                    ${isCaptain ? html`<span class="badge-role badge-captain">CAP</span>` : ''}
                                                     ${isVice ? html`<span class="badge-role badge-vice">VICE</span>` : ''}
                                                 </div>
                                             </td>
 
-                                            <td style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">
+                                            <td style="font-family: 'JetBrains Mono', monospace; font-weight: 600; text-align: center;">
                                                 ${m.level}
                                             </td>
 
-                                            <td>
+                                            <td class="faction-cell">
                                                 ${m.factionName ? html`
                                                     <a 
                                                         href="https://www.torn.com/factions.php?step=profile&ID=${m.factionID}" 
                                                         target="_blank"
-                                                        style="color: #94a3b8; text-decoration: none; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;"
+                                                        title="${m.factionName}"
+                                                        style="color: #94a3b8; text-decoration: none; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;"
                                                     >
                                                         ${m.factionTag ? html`<strong style="color: #f1f5f9;">[${m.factionTag}]</strong>` : ''}
                                                         <span>${m.factionName}</span>
@@ -1483,10 +1515,10 @@ export class ElimTeamTab extends LitElement {
                                                 </div>
                                             </td>
 
-                                            <td>
+                                            <td style="text-align: center;">
                                                 <div class="attack-badge ${this.getAttackBadgeClass(m.attacks)}">
                                                     ${m.attacks === 0 ? '💀 0' : m.attacks}
-                                                    ${isZero ? html`<span style="font-size:0.65rem; font-weight:700;">DEAD</span>` : ''}
+                                                    ${isZero ? html`<span style="font-size:0.62rem; font-weight:700;">DEAD</span>` : ''}
                                                 </div>
                                             </td>
 
@@ -1496,33 +1528,33 @@ export class ElimTeamTab extends LitElement {
                                                     .value=${m.contactStatus || 'uncontacted'}
                                                     @change=${(e: any) => this.setMemberContactStatus(m.userID, e.target.value)}
                                                 >
-                                                    <option value="uncontacted">⏳ Chưa liên hệ</option>
-                                                    <option value="contacted">✉️ Đã nhắn</option>
-                                                    <option value="replied">💬 Đã trả lời</option>
-                                                    <option value="left">🚪 Đã rời team</option>
-                                                    <option value="ignored">❌ Từ chối / Kệ</option>
+                                                    <option value="uncontacted">⏳ Uncontacted</option>
+                                                    <option value="contacted">✉️ Contacted</option>
+                                                    <option value="replied">💬 Replied</option>
+                                                    <option value="left">🚪 Left Team</option>
+                                                    <option value="ignored">❌ Ignored / Declined</option>
                                                 </select>
                                             </td>
 
                                             <td style="text-align: right;">
-                                                <div class="action-cell" style="justify-content: flex-end;">
+                                                <div class="action-cell">
                                                     <button 
                                                         class="btn-action copy-btn" 
-                                                        title="Copy tin nhắn thuyết phục"
+                                                        title="Copy persuasion message"
                                                         @click=${() => this.copyPersuasionMessage(m)}
                                                     >
                                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                                             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                                         </svg>
-                                                        <span>Copy Msg</span>
+                                                        <span>Copy</span>
                                                     </button>
 
                                                     <a 
                                                         href="https://www.torn.com/messages.php#/p=compose&XID=${m.userID}" 
                                                         target="_blank" 
                                                         class="btn-action mail-btn"
-                                                        title="Mở Torn Mail soạn tin nhắn"
+                                                        title="Compose Torn Mail"
                                                         @click=${() => this.markAsContactedIfUncontacted(m.userID)}
                                                     >
                                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1552,19 +1584,97 @@ export class ElimTeamTab extends LitElement {
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Pagination Controls Bar -->
+                    ${totalItems > 0 ? html`
+                        <div class="pagination-bar">
+                            <div>
+                                Showing <strong>${totalItems === 0 ? 0 : startIndex + 1} - ${endIndex}</strong> of <strong>${totalItems}</strong> members
+                                ${this.selectedUserIDs.size > 0 ? html` &bull; <strong>${this.selectedUserIDs.size}</strong> selected` : ''}
+                            </div>
+
+                            <div class="pagination-controls">
+                                <button 
+                                    class="btn-page" 
+                                    ?disabled=${safeCurrentPage <= 1}
+                                    @click=${() => this.currentPage = 1}
+                                    title="First Page"
+                                >
+                                    &laquo;
+                                </button>
+
+                                <button 
+                                    class="btn-page" 
+                                    ?disabled=${safeCurrentPage <= 1}
+                                    @click=${() => this.currentPage = Math.max(1, safeCurrentPage - 1)}
+                                    title="Previous Page"
+                                >
+                                    &lsaquo; Prev
+                                </button>
+
+                                <span style="font-size: 0.8rem; padding: 0 0.5rem;">
+                                    Page <strong>${safeCurrentPage}</strong> of <strong>${totalPages}</strong>
+                                </span>
+
+                                <button 
+                                    class="btn-page" 
+                                    ?disabled=${safeCurrentPage >= totalPages}
+                                    @click=${() => this.currentPage = Math.min(totalPages, safeCurrentPage + 1)}
+                                    title="Next Page"
+                                >
+                                    Next &rsaquo;
+                                </button>
+
+                                <button 
+                                    class="btn-page" 
+                                    ?disabled=${safeCurrentPage >= totalPages}
+                                    @click=${() => this.currentPage = totalPages}
+                                    title="Last Page"
+                                >
+                                    &raquo;
+                                </button>
+
+                                <div style="margin-left: 0.75rem; display: flex; align-items: center; gap: 4px;">
+                                    <span style="font-size: 0.8rem;">Rows:</span>
+                                    <select 
+                                        class="text-input" 
+                                        style="padding: 0.25rem 0.5rem; font-size: 0.8rem; width: auto;"
+                                        .value=${String(this.pageSize)}
+                                        @change=${(e: any) => {
+                                            this.pageSize = Number(e.target.value);
+                                            this.currentPage = 1;
+                                        }}
+                                    >
+                                        <option value="25">25</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                        <option value="200">200</option>
+                                        <option value="-1">All</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
                 ` : html`
                     <div class="empty-state">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.5">
+                        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.5">
                             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                             <circle cx="9" cy="7" r="4"></circle>
                             <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
                             <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                         </svg>
-                        <strong style="color: #cbd5e1; font-size: 1.1rem;">Chưa có dữ liệu thành viên Elim Team</strong>
-                        <p style="max-width: 480px; font-size: 0.85rem; line-height: 1.5;">
-                            Nhập URL hoặc Team ID & RFCV ở trên rồi bấm <strong>Fetch Page</strong> hoặc <strong>Fetch All</strong> để tải danh sách thành viên. 
-                            Nếu Cloudflare của Torn chặn request server, bạn có thể bấm <strong>Paste JSON Payload</strong> hoặc sử dụng <strong>Torn Console Helper</strong>.
+                        <strong style="color: #cbd5e1; font-size: 1.15rem;">No Elimination 2026 Team Data Loaded Yet</strong>
+                        <p style="max-width: 520px; font-size: 0.88rem; line-height: 1.5; margin: 0 auto;">
+                            To view your team's roster and persuade inactive hitters, run the <strong>Torn Console Helper Script</strong> on Torn or paste your payload JSON below:
                         </p>
+                        <div class="btn-group" style="margin-top: 0.5rem;">
+                            <button class="btn btn-primary" @click=${() => this.showPasteModal = true}>
+                                📋 Paste JSON Payload
+                            </button>
+                            <button class="btn btn-success" @click=${() => this.showConsoleScriptModal = true}>
+                                💻 Torn Console Helper Script
+                            </button>
+                        </div>
                     </div>
                 `}
 
@@ -1573,23 +1683,23 @@ export class ElimTeamTab extends LitElement {
                     <div class="modal-overlay" @click=${(e: any) => { if (e.target.classList.contains('modal-overlay')) this.showPasteModal = false; }}>
                         <div class="modal-box">
                             <div class="modal-title">
-                                <span>Paste Raw JSON Payload từ Torn</span>
+                                <span>Paste Raw JSON Payload from Torn</span>
                                 <button class="modal-close" @click=${() => this.showPasteModal = false}>&times;</button>
                             </div>
                             <p style="font-size: 0.85rem; color: #94a3b8; margin: 0;">
-                                Dán payload JSON của Torn (từ F12 Network tab hoặc copy từ response của endpoint competitionData):
+                                Paste the JSON response from your browser's DevTools Network tab or from the console script:
                             </p>
                             <textarea 
                                 class="text-input" 
                                 rows="10" 
-                                placeholder='{"members": [...]} hoặc dán trực tiếp array [{ "userID": 4028556, "playername": "...", "attacks": 302 }]'
+                                placeholder='{"members": [...]} or raw array [{ "userID": 4028556, "playername": "...", "attacks": 302 }]'
                                 .value=${this.pasteJsonText}
                                 @input=${(e: any) => this.pasteJsonText = e.target.value}
                             ></textarea>
                             <div class="btn-group" style="justify-content: flex-end;">
-                                <button class="btn" @click=${() => this.showPasteModal = false}>Hủy</button>
+                                <button class="btn" @click=${() => this.showPasteModal = false}>Cancel</button>
                                 <button class="btn btn-primary" @click=${this.loadPastedJson}>
-                                    Load Dữ Liệu
+                                    Load Roster
                                 </button>
                             </div>
                         </div>
@@ -1605,91 +1715,20 @@ export class ElimTeamTab extends LitElement {
                                 <button class="modal-close" @click=${() => this.showConsoleScriptModal = false}>&times;</button>
                             </div>
                             <p style="font-size: 0.85rem; color: #94a3b8; margin: 0;">
-                                Nếu Cloudflare chặn IP server của bạn, hãy mở tab Torn trong trình duyệt (nơi bạn đã đăng nhập), bấm F12 &rarr; Console, dán đoạn code sau và Enter:
+                                Open your Torn tab (where you are logged in), press <strong>F12 &rarr; Console</strong>, paste the script below, and press <strong>Enter</strong>:
                             </p>
                             <pre class="code-box">${this.generateConsoleScript()}</pre>
                             <div class="btn-group" style="justify-content: flex-end;">
                                 <button class="btn btn-primary" @click=${this.copyConsoleScript}>
-                                    📋 Copy Snippet
+                                    📋 Copy Script
                                 </button>
-                                <button class="btn" @click=${() => this.showConsoleScriptModal = false}>Đóng</button>
+                                <button class="btn" @click=${() => this.showConsoleScriptModal = false}>Close</button>
                             </div>
                         </div>
                     </div>
                 ` : ''}
             </div>
         `;
-    }
-
-    private handleUrlInput(e: any) {
-        this.inputUrl = e.target.value;
-        try {
-            const url = new URL(this.inputUrl);
-            const tid = url.searchParams.get('teamID');
-            if (tid) {
-                this.teamID = Number(tid);
-                localStorage.setItem('tornElimTeamID', String(this.teamID));
-            }
-            const p = url.searchParams.get('p');
-            if (p) this.page = Number(p);
-            const token = url.searchParams.get('rfcv');
-            if (token) {
-                this.rfcv = token;
-                localStorage.setItem('tornElimRfcv', this.rfcv);
-            }
-        } catch {
-            // Not a full URL yet, ignore
-        }
-    }
-
-    private updateInputUrl() {
-        this.inputUrl = `https://www.torn.com/page.php?sid=competitionData&step=viewTeam&teamID=${this.teamID}&showAvailable=0&p=${this.page}&rfcv=${this.rfcv}`;
-    }
-
-    private async fetchRoster(fetchAll = false) {
-        this.isLoading = true;
-        this.errorMessage = '';
-        this.loadingProgress = fetchAll ? 'Đang kết nối và lấy toàn bộ trang...' : `Đang tải trang ${this.page}...`;
-
-        try {
-            const endpoint = `/api/elimination/team-roster?teamID=${this.teamID}&p=${this.page}&rfcv=${encodeURIComponent(this.rfcv)}&fetchAll=${fetchAll}`;
-            const res = await fetch(endpoint, {
-                headers: this.tornCookie ? { 'X-Torn-Cookie': this.tornCookie } : {}
-            });
-
-            const data = await res.json();
-
-            if (!res.ok || !data.ok) {
-                if (data.isCloudflare || data.error?.includes('Cloudflare')) {
-                    this.errorMessage = 'Cloudflare của Torn đã chặn request từ server. Vui lòng bấm "Paste JSON Payload" hoặc sử dụng "Torn Console Helper" để lấy trực tiếp từ tab Torn của bạn!';
-                } else {
-                    this.errorMessage = data.error || 'Lỗi không xác định khi tải danh sách thành viên.';
-                }
-                return;
-            }
-
-            if (data.teamName) this.teamName = data.teamName;
-            if (data.totalPages) this.totalPages = data.totalPages;
-            if (data.total) this.totalCount = data.total;
-
-            const incomingMembers: ElimTeamMember[] = (data.members || []).map((m: any) => this.parseHospitalTime(m));
-
-            if (fetchAll) {
-                this.mergeMembers(incomingMembers, true);
-                this.successNotification = `Đã tải thành công toàn bộ ${this.members.length} thành viên của Team!`;
-            } else {
-                this.mergeMembers(incomingMembers, false);
-                this.successNotification = `Đã tải thành công trang ${this.page} (${incomingMembers.length} thành viên)!`;
-            }
-
-            // Save to localStorage
-            this.saveMembersToStorage();
-        } catch (err: any) {
-            this.errorMessage = err.message || 'Lỗi kết nối tới backend server.';
-        } finally {
-            this.isLoading = false;
-            this.loadingProgress = '';
-        }
     }
 
     private parseHospitalTime(member: ElimTeamMember): ElimTeamMember {
@@ -1729,7 +1768,7 @@ export class ElimTeamTab extends LitElement {
         if (!this.pasteJsonText.trim()) return;
         try {
             const parsed = JSON.parse(this.pasteJsonText.trim());
-            // Use client-side normalization
+            // Client-side normalization
             let rawList: any[] = [];
             if (Array.isArray(parsed)) {
                 rawList = parsed;
@@ -1737,9 +1776,14 @@ export class ElimTeamTab extends LitElement {
                 rawList = parsed.members;
             } else if (Array.isArray(parsed.list)) {
                 rawList = parsed.list;
+            } else if (Array.isArray(parsed.userList)) {
+                rawList = parsed.userList;
             } else if (typeof parsed === 'object') {
                 rawList = Object.values(parsed);
             }
+
+            if (parsed.teamName) this.teamName = parsed.teamName;
+            if (parsed.teamID) this.teamID = Number(parsed.teamID);
 
             const formatted: ElimTeamMember[] = rawList.map((m: any) => this.parseHospitalTime({
                 userID: Number(m.userID || m.id || m.userId),
@@ -1767,23 +1811,26 @@ export class ElimTeamTab extends LitElement {
             this.saveMembersToStorage();
             this.showPasteModal = false;
             this.pasteJsonText = '';
-            this.successNotification = `Đã nhập thành công ${formatted.length} thành viên từ JSON!`;
+            this.currentPage = 1;
+            this.successNotification = `Successfully loaded ${formatted.length} members from JSON!`;
         } catch (err: any) {
-            alert('JSON không hợp lệ: ' + err.message);
+            alert('Invalid JSON format: ' + err.message);
         }
     }
 
     private clearRoster() {
-        if (confirm('Bạn có chắc chắn muốn xóa danh sách thành viên hiện tại?')) {
+        if (confirm('Are you sure you want to clear the current team roster?')) {
             this.members = [];
             this.selectedUserIDs.clear();
             localStorage.removeItem('tornElimRosterMembers');
-            this.successNotification = 'Đã làm trống danh sách.';
+            this.currentPage = 1;
+            this.successNotification = 'Roster cleared.';
         }
     }
 
     private saveMembersToStorage() {
         localStorage.setItem('tornElimRosterMembers', JSON.stringify(this.members));
+        if (this.teamName) localStorage.setItem('tornElimTeamName', this.teamName);
     }
 
     private setMemberContactStatus(userId: number, status: string) {
@@ -1828,7 +1875,7 @@ export class ElimTeamTab extends LitElement {
         const msg = this.formatMessageForMember(member);
         await navigator.clipboard.writeText(msg);
         this.markAsContactedIfUncontacted(member.userID);
-        this.successNotification = `Đã copy tin nhắn cho ${member.playername}!`;
+        this.successNotification = `Copied message for ${member.playername}!`;
     }
 
     private async bulkCopyMessages() {
@@ -1840,21 +1887,21 @@ export class ElimTeamTab extends LitElement {
         }).join('\n');
 
         await navigator.clipboard.writeText(lines);
-        this.successNotification = `Đã copy ${selected.length} tin nhắn vào clipboard!`;
+        this.successNotification = `Copied ${selected.length} messages to clipboard!`;
     }
 
     private async bulkExportDiscord() {
         const selected = this.members.filter(m => this.selectedUserIDs.has(m.userID));
         if (selected.length === 0) return;
 
-        let output = `**Elimination Low Contributors Report - Team ${this.teamID}**\n`;
+        let output = `**Elimination 2026 Low Contributors Report - Team ${this.teamID}**\n`;
         output += `Total low contributors: ${selected.length}\n\n`;
         for (const m of selected) {
             output += `• **${m.playername}** [${m.userID}] (Lvl ${m.level}) - **${m.attacks} attacks** | Status: ${Array.isArray(m.status) ? m.status[1] : 'Okay'} | <https://www.torn.com/profiles.php?NID=${m.userID}>\n`;
         }
 
         await navigator.clipboard.writeText(output);
-        this.successNotification = `Đã copy danh sách định dạng Discord cho ${selected.length} người!`;
+        this.successNotification = `Copied Discord formatted list for ${selected.length} players!`;
     }
 
     private bulkSetContactStatus(status: ContactStatus) {
@@ -1869,7 +1916,7 @@ export class ElimTeamTab extends LitElement {
             return m;
         });
         this.saveMembersToStorage();
-        this.successNotification = `Đã cập nhật trạng thái "${status}" cho ${this.selectedUserIDs.size} người.`;
+        this.successNotification = `Updated status to "${status}" for ${this.selectedUserIDs.size} members.`;
     }
 
     private getAttackBadgeClass(attacks: number): string {
@@ -1984,42 +2031,46 @@ export class ElimTeamTab extends LitElement {
     }
 
     private generateConsoleScript(): string {
-        return `// Chạy đoạn này trong F12 Console trên tab https://www.torn.com:
+        return `// Run this in F12 Console on https://www.torn.com:
 (async () => {
-    const teamID = ${this.teamID};
-    const rfcv = window.rfcv || '${this.rfcv}';
-    console.log('%c[Torn Fetcher] Bắt đầu tải toàn bộ thành viên team ' + teamID + '...', 'color: #3b82f6; font-weight: bold;');
+    // Auto-detect teamID from URL if on competition page, or default to 89
+    const match = location.search.match(/teamID=(\\d+)/);
+    const teamID = match ? Number(match[1]) : ${this.teamID || 89};
+    const rfcv = window.rfcv || document.querySelector('[data-rfcv]')?.dataset?.rfcv || '';
+    
+    console.log('%c[Torn Fetcher] Fetching Elimination 2026 roster for team ' + teamID + '...', 'color: #3b82f6; font-weight: bold;');
     
     let allMembers = [];
     let p = 1;
     let totalPages = 1;
     
-    while (p <= totalPages && p <= 25) {
-        console.log(\`Đang tải trang \${p}...\`);
+    while (p <= totalPages && p <= 30) {
+        console.log(\`Fetching page \${p}...\`);
         try {
-            const res = await fetch(\`/page.php?sid=competitionData&step=viewTeam&teamID=\${teamID}&showAvailable=0&p=\${p}&rfcv=\${rfcv}\`, {
+            const url = \`/page.php?sid=competitionData&step=viewTeam&teamID=\${teamID}&showAvailable=0&p=\${p}\${rfcv ? '&rfcv=' + rfcv : ''}\`;
+            const res = await fetch(url, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json, text/javascript, */*' }
             });
             const data = await res.json();
-            const list = Array.isArray(data) ? data : (data.members || data.list || []);
+            const list = Array.isArray(data) ? data : (data.members || data.list || data.userList || []);
             if (list.length === 0) break;
             allMembers.push(...list);
             if (data.totalPages && data.totalPages > totalPages) totalPages = data.totalPages;
             p++;
-            await new Promise(r => setTimeout(r, 200));
+            await new Promise(r => setTimeout(r, 250));
         } catch (err) {
-            console.error('Lỗi khi tải trang ' + p + ':', err);
+            console.error('Error fetching page ' + p + ':', err);
             break;
         }
     }
     
-    console.log('%c✓ Đã tải xong ' + allMembers.length + ' thành viên!', 'color: #10b981; font-weight: bold;');
+    console.log('%c✓ Successfully loaded ' + allMembers.length + ' members!', 'color: #10b981; font-weight: bold;');
     
-    // Lưu vào biến toàn cục để truy xuất
+    // Save to window variable for easy inspection
     window.tornElimMembers = allMembers;
     const jsonStr = JSON.stringify(allMembers);
     
-    // Dùng lệnh copy() có sẵn trong DevTools console (không bị lỗi Document is not focused)
+    // 1. DevTools console built-in copy()
     let copied = false;
     if (typeof copy === 'function') {
         try {
@@ -2028,7 +2079,7 @@ export class ElimTeamTab extends LitElement {
         } catch (e) {}
     }
     
-    // Fallback nếu không có hàm copy() của DevTools
+    // 2. Fallback using textarea + execCommand
     if (!copied) {
         try {
             const ta = document.createElement('textarea');
@@ -2042,32 +2093,32 @@ export class ElimTeamTab extends LitElement {
         } catch (e) {}
     }
     
-    // Thử đồng bộ trực tiếp vào ứng dụng nếu đang mở ở localhost
+    // 3. Attempt direct sync to local app server if running
     let synced = false;
     try {
         const syncRes = await fetch('http://localhost:3000/api/elimination/team-roster', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rawJson: allMembers })
+            body: JSON.stringify({ rawJson: allMembers, teamID })
         });
         if (syncRes.ok) synced = true;
     } catch (e) {}
     
     if (synced) {
-        console.log('%c✓ Đã tự động đồng bộ thành công vào ứng dụng (localhost:3000)!', 'color: #3b82f6; font-size: 13px; font-weight: bold;');
-        alert('Đã tải và tự động đồng bộ ' + allMembers.length + ' thành viên vào ứng dụng!');
+        console.log('%c✓ Auto-synced with local app (localhost:3000)!', 'color: #3b82f6; font-size: 13px; font-weight: bold;');
+        alert('Successfully fetched and synced ' + allMembers.length + ' members into the app!');
     } else if (copied) {
-        console.log('%c✓ Đã copy thành công dữ liệu vào Clipboard!', 'color: #10b981; font-size: 13px; font-weight: bold;');
-        alert('Đã tải xong ' + allMembers.length + ' thành viên và COPY vào Clipboard! Hãy quay lại app và bấm "Paste JSON Payload".');
+        console.log('%c✓ Copied roster data to clipboard!', 'color: #10b981; font-size: 13px; font-weight: bold;');
+        alert('Fetched ' + allMembers.length + ' members and copied to Clipboard! Switch back to the app and click "Paste JSON Payload".');
     } else {
-        console.log('%cDữ liệu đã được lưu vào window.tornElimMembers. Bạn có thể gõ copy(JSON.stringify(window.tornElimMembers)) để copy.', 'color: #f59e0b; font-size: 13px;');
-        alert('Đã tải xong ' + allMembers.length + ' thành viên! Hãy gõ: copy(JSON.stringify(window.tornElimMembers)) vào Console để copy.');
+        console.log('%cData saved to window.tornElimMembers. Type copy(JSON.stringify(window.tornElimMembers)) to copy.', 'color: #f59e0b; font-size: 13px;');
+        alert('Fetched ' + allMembers.length + ' members! Type copy(JSON.stringify(window.tornElimMembers)) in Console to copy.');
     }
 })();`;
     }
 
     private async copyConsoleScript() {
         await navigator.clipboard.writeText(this.generateConsoleScript());
-        this.successNotification = 'Đã copy Console Script vào clipboard!';
+        this.successNotification = 'Copied console helper script to clipboard!';
     }
 }
