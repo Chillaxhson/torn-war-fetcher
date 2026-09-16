@@ -4,6 +4,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import './components/api-form.js';
 import './components/target-list.js';
 import './components/elimination-tab.js';
+import './components/elim-team-tab.js';
 import './components/countdown-timer.js';
 import { Member, UserProfile, EliminationTeam } from './types.js';
 
@@ -19,7 +20,7 @@ export class TornApp extends LitElement {
     private factionIdHistory: string[] = [];
 
     @state()
-    private activeTab: 'war' | 'elimination' = 'war';
+    private activeTab: 'war' | 'elimination' | 'elim-team' = 'war';
 
     @state()
     private targets: Member[] = [];
@@ -144,6 +145,11 @@ export class TornApp extends LitElement {
             background: rgba(239, 68, 68, 0.08);
         }
 
+        .nav-tab.active.team-tab {
+            border-bottom-color: #10b981;
+            background: rgba(16, 185, 129, 0.08);
+        }
+
         .tab-pill {
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.75rem;
@@ -160,6 +166,11 @@ export class TornApp extends LitElement {
 
         .nav-tab.active.elim-tab .tab-pill {
             background: #dc2626;
+            color: #fff;
+        }
+
+        .nav-tab.active.team-tab .tab-pill {
+            background: #059669;
             color: #fff;
         }
 
@@ -244,7 +255,7 @@ export class TornApp extends LitElement {
         }
 
         const storedTab = localStorage.getItem('tornActiveTab');
-        if (storedTab === 'war' || storedTab === 'elimination') {
+        if (storedTab === 'war' || storedTab === 'elimination' || storedTab === 'elim-team') {
             this.activeTab = storedTab;
         }
 
@@ -343,10 +354,23 @@ export class TornApp extends LitElement {
                     <span>Elimination Targets</span>
                     ${this.targets.length > 0 ? html`<span class="tab-pill">${this.targets.length}</span>` : ''}
                 </button>
+
+                <button 
+                    class="nav-tab team-tab ${this.activeTab === 'elim-team' ? 'active' : ''}"
+                    @click=${() => this.switchTab('elim-team')}
+                >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <span>Elim Team Roster</span>
+                </button>
             </div>
 
             <!-- Polling Status Toolbar -->
-            ${this.nextFetchTime > 0 || this.lastUpdatedStr ? html`
+            ${this.activeTab !== 'elim-team' && (this.nextFetchTime > 0 || this.lastUpdatedStr) ? html`
                 <div class="status-toolbar">
                     <div class="refresh-tag">
                         ${this.nextFetchTime > 0 ? html`
@@ -383,7 +407,7 @@ export class TornApp extends LitElement {
                     @update-target=${this.handleUpdateTarget}
                     @bulk-hide=${this.handleBulkHide}
                 ></target-list>
-            ` : html`
+            ` : this.activeTab === 'elimination' ? html`
                 <elimination-tab
                     .targets=${this.targets}
                     .teams=${this.eliminationTeams}
@@ -392,6 +416,10 @@ export class TornApp extends LitElement {
                     .soundEnabled=${this.soundEnabled}
                     @update-target=${this.handleUpdateTarget}
                 ></elimination-tab>
+            ` : html`
+                <elim-team-tab
+                    .apiKey=${this.apiKey}
+                ></elim-team-tab>
             `}
         `;
     }
@@ -409,11 +437,11 @@ export class TornApp extends LitElement {
         return null;
     }
 
-    private switchTab(tab: 'war' | 'elimination') {
+    private switchTab(tab: 'war' | 'elimination' | 'elim-team') {
         this.activeTab = tab;
         localStorage.setItem('tornActiveTab', tab);
-        // If switching to elimination, re-fetch targets to ensure elimination metadata is fully populated
-        if (this.apiKey && this.factionId) {
+        // If switching to war or elimination, re-fetch targets to ensure elimination metadata is fully populated
+        if (tab !== 'elim-team' && this.apiKey && this.factionId) {
             this.fetchTargets(true);
         }
     }

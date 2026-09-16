@@ -6,7 +6,9 @@ import {
     fetchUserData, 
     fetchEliminationTeams, 
     fetchFactionEliminationMembers,
-    fetchSpyData
+    fetchSpyData,
+    fetchElimTeamData,
+    normalizeRawTeamData
 } from './tornApi.js';
 import { fileURLToPath } from 'url';
 
@@ -109,6 +111,103 @@ app.post('/api/elimination/members', async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Error fetching elimination members:', error);
         res.status(500).json({ error: 'Failed to fetch elimination members data.', details: error.message });
+    }
+});
+
+// Elimination Team Roster from Torn internal endpoint
+app.all('/api/elimination/team-roster', async (req: Request, res: Response) => {
+    try {
+        const queryOrBody = req.method === 'POST' ? req.body : req.query;
+        
+        // If client sends raw JSON payload directly to be normalized
+        if (queryOrBody.rawJson) {
+            let rawData = queryOrBody.rawJson;
+            if (typeof rawData === 'string') {
+                try {
+                    rawData = JSON.parse(rawData);
+                } catch {
+                    return res.status(400).json({ error: 'Invalid JSON string provided.' });
+                }
+            }
+            const normalized = normalizeRawTeamData(rawData, Number(queryOrBody.p || 1));
+            return res.json({ ok: true, ...normalized });
+        }
+
+        const teamID = queryOrBody.teamID || queryOrBody.teamId || 89;
+        const rfcv = queryOrBody.rfcv as string | undefined;
+        const p = Number(queryOrBody.p || queryOrBody.page || 1);
+        const showAvailable = Number(queryOrBody.showAvailable || 0);
+        const cookie = (queryOrBody.cookie as string) || (req.headers['x-torn-cookie'] as string) || '';
+        const fetchAll = queryOrBody.fetchAll === 'true' || queryOrBody.fetchAll === true;
+
+        if (!fetchAll) {
+            const data = await fetchElimTeamData({
+                teamID,
+                rfcv,
+                p,
+                showAvailable,
+                cookie
+            });
+            return res.json(data);
+        }
+
+        // Auto-fetch all pages
+        const allMembers: any[] = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        let teamName = '';
+
+        while (currentPage <= totalPages && currentPage <= 30) {
+            const pageData = await fetchElimTeamData({
+                teamID,
+                rfcv,
+                p: currentPage,
+                showAvailable,
+                cookie
+            });
+
+            if (pageData.teamName) {
+                teamName = pageData.teamName;
+            }
+            if (pageData.totalPages && pageData.totalPages > totalPages) {
+                totalPages = pageData.totalPages;
+            }
+
+            if (Array.isArray(pageData.members) && pageData.members.length > 0) {
+                allMembers.push(...pageData.members);
+            } else {
+                break;
+            }
+
+            // Small delay to prevent rate-limiting
+            if (currentPage < totalPages) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+            currentPage++;
+        }
+
+        // Deduplicate members by userID
+        const memberMap = new Map<number, any>();
+        for (const m of allMembers) {
+            memberMap.set(m.userID, m);
+        }
+        const uniqueMembers = Array.from(memberMap.values());
+
+        res.json({
+            ok: true,
+            teamID: Number(teamID),
+            teamName,
+            total: uniqueMembers.length,
+            totalPages,
+            members: uniqueMembers
+        });
+    } catch (error: any) {
+        console.error('Error in /api/elimination/team-roster:', error);
+        res.status(500).json({ 
+            ok: false, 
+            error: error.message || 'Failed to fetch elimination team roster.',
+            isCloudflare: error.message?.includes('Cloudflare')
+        });
     }
 });
 

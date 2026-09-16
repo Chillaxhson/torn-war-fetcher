@@ -370,3 +370,123 @@ export async function fetchSpyData(
 
     return result;
 }
+
+export function normalizeRawTeamData(data: any, defaultPage = 1): {
+    members: any[];
+    page: number;
+    total: number;
+    totalPages: number;
+    teamName: string;
+    teamID?: number;
+} {
+    let rawMembers: any[] = [];
+    if (Array.isArray(data)) {
+        rawMembers = data;
+    } else if (Array.isArray(data?.members)) {
+        rawMembers = data.members;
+    } else if (Array.isArray(data?.list)) {
+        rawMembers = data.list;
+    } else if (Array.isArray(data?.userList)) {
+        rawMembers = data.userList;
+    } else if (Array.isArray(data?.teamData?.members)) {
+        rawMembers = data.teamData.members;
+    } else if (data?.members && typeof data.members === 'object') {
+        rawMembers = Object.values(data.members);
+    } else if (typeof data === 'object' && data !== null) {
+        const vals = Object.values(data);
+        if (vals.length > 0 && typeof vals[0] === 'object' && vals[0] !== null && (vals[0] as any)?.userID) {
+            rawMembers = vals;
+        }
+    }
+
+    const members = rawMembers.map((m: any) => ({
+        userID: Number(m.userID || m.id || m.userId),
+        playername: m.playername || m.name || m.playerName || '',
+        honorID: m.honorID !== undefined ? Number(m.honorID) : undefined,
+        honorStyle: m.honorStyle || 'default',
+        level: Number(m.level || 0),
+        status: Array.isArray(m.status) ? m.status : [m.status?.color || 'green', m.status?.description || 'Okay', m.status?.state || 0],
+        icons: m.icons || '',
+        factionID: m.factionID ? Number(m.factionID) : undefined,
+        factionName: m.factionName,
+        factionTag: m.factionTag,
+        factionImageUrl: m.factionImageUrl,
+        factionRank: m.factionRank,
+        onlineStatus: (m.onlineStatus || m.online || 'offline').toLowerCase(),
+        isCaptain: Number(m.isCaptain ?? m.is_captain ?? 0),
+        isViceCaptain: Number(m.isViceCaptain ?? m.is_vice_captain ?? 0),
+        is_captain: Number(m.isCaptain ?? m.is_captain ?? 0),
+        is_vice_captain: Number(m.isViceCaptain ?? m.is_vice_captain ?? 0),
+        attacks: Number(m.attacks ?? m.attackCount ?? 0),
+        attack_link: m.attack_link || `/page.php?sid=attack&user2ID=${m.userID || m.id}`
+    }));
+
+    const page = Number(data?.p || data?.page || defaultPage);
+    const total = Number(data?.total || data?.totalMembers || data?.count || members.length);
+    const totalPages = Number(data?.totalPages || data?.pages || (total > 0 && members.length > 0 ? Math.ceil(total / members.length) : 1));
+    const teamName = data?.teamName || data?.teamData?.name || '';
+    const teamID = data?.teamID ? Number(data.teamID) : undefined;
+
+    return {
+        members,
+        page,
+        total,
+        totalPages,
+        teamName,
+        teamID
+    };
+}
+
+export interface FetchElimTeamOptions {
+    teamID: number | string;
+    rfcv?: string;
+    p?: number | string;
+    showAvailable?: number | string;
+    cookie?: string;
+}
+
+export async function fetchElimTeamData(options: FetchElimTeamOptions): Promise<any> {
+    const { teamID, rfcv, p = 1, showAvailable = 0, cookie } = options;
+
+    let url = `https://www.torn.com/page.php?sid=competitionData&step=viewTeam&teamID=${teamID}&showAvailable=${showAvailable}&p=${p}`;
+    if (rfcv) {
+        url += `&rfcv=${encodeURIComponent(rfcv)}`;
+    }
+
+    const headers: Record<string, string> = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Referer': 'https://www.torn.com/competition.php'
+    };
+
+    if (cookie && cookie.trim()) {
+        headers['Cookie'] = cookie.trim();
+    }
+
+    const response = await fetch(url, { headers });
+    const text = await response.text();
+
+    if (text.includes('<!DOCTYPE html>') || text.includes('challenge-error-text') || text.includes('cf-browser-verification') || text.includes('challenge-running')) {
+        throw new Error('Cloudflare challenge detected. Please provide your Torn Session Cookie (PHPSESSID) or paste the JSON payload directly into the app.');
+    }
+
+    let parsed: any;
+    try {
+        parsed = JSON.parse(text);
+    } catch (err) {
+        throw new Error(`Invalid JSON returned from Torn endpoint: ${text.slice(0, 150)}...`);
+    }
+
+    if (parsed && parsed.error) {
+        throw new Error(parsed.error);
+    }
+
+    const normalized = normalizeRawTeamData(parsed, Number(p));
+    return {
+        ok: true,
+        teamID: Number(teamID),
+        ...normalized
+    };
+}
+

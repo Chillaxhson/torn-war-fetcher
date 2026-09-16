@@ -124,3 +124,47 @@ export function calculateFairFight(targetStats: number | null | undefined, userS
         textColor
     };
 }
+
+export type ContactStatus = 'uncontacted' | 'contacted' | 'replied' | 'left' | 'ignored';
+
+export interface ElimTeamMember {
+    userID: number;
+    playername: string;
+    honorID?: number;
+    honorStyle?: string;
+    level: number;
+    status: [string, string, number] | string[];
+    icons?: string;
+    factionID?: number;
+    factionName?: string;
+    factionTag?: string;
+    factionImageUrl?: string;
+    factionRank?: string;
+    onlineStatus: 'online' | 'idle' | 'offline' | string;
+    isCaptain?: number;
+    isViceCaptain?: number;
+    is_captain?: number;
+    is_vice_captain?: number;
+    attacks: number;
+    attack_link?: string;
+
+    // Local client-managed fields
+    contactStatus?: ContactStatus;
+    contactNotes?: string;
+    contactedAt?: number;
+    selected?: boolean;
+    hospitalTimeStr?: string;
+}
+
+export interface ElimTeamRosterResponse {
+    ok: boolean;
+    teamID?: number;
+    teamName?: string;
+    page?: number;
+    total?: number;
+    totalPages?: number;
+    members: ElimTeamMember[];
+    error?: string;
+    details?: string;
+}
+
