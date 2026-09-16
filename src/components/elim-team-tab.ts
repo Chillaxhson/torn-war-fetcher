@@ -1467,7 +1467,7 @@ export class ElimTeamTab extends LitElement {
                                             <td>
                                                 <div class="player-cell">
                                                     <a 
-                                                        href="https://www.torn.com/profiles.php?NID=${m.userID}" 
+                                                        href="https://www.torn.com/profiles.php?XID=${m.userID}" 
                                                         target="_blank" 
                                                         class="player-link"
                                                         title="${m.playername} [${m.userID}]"
@@ -1897,7 +1897,7 @@ export class ElimTeamTab extends LitElement {
         let output = `**Elimination 2026 Low Contributors Report - Team ${this.teamID}**\n`;
         output += `Total low contributors: ${selected.length}\n\n`;
         for (const m of selected) {
-            output += `• **${m.playername}** [${m.userID}] (Lvl ${m.level}) - **${m.attacks} attacks** | Status: ${Array.isArray(m.status) ? m.status[1] : 'Okay'} | <https://www.torn.com/profiles.php?NID=${m.userID}>\n`;
+            output += `• **${m.playername}** [${m.userID}] (Lvl ${m.level}) - **${m.attacks} attacks** | Status: ${Array.isArray(m.status) ? m.status[1] : 'Okay'} | <https://www.torn.com/profiles.php?XID=${m.userID}>\n`;
         }
 
         await navigator.clipboard.writeText(output);
